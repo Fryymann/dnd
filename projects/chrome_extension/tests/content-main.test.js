@@ -47,7 +47,7 @@ describe('registerCharacterExportListener', () => {
     const { listener } = setup({ runExport: vi.fn().mockRejectedValue(error) });
     const sendResponse = vi.fn();
 
-    listener(EXPORT_MESSAGE, {}, sendResponse);
+    expect(listener(EXPORT_MESSAGE, {}, sendResponse)).toBe(true);
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
 
     expect(sendResponse).toHaveBeenCalledWith({
@@ -61,7 +61,8 @@ describe('registerCharacterExportListener', () => {
     const { listener } = setup({ getHref: () => 'https://www.dndbeyond.com/characters', runExport });
     const sendResponse = vi.fn();
 
-    listener(EXPORT_MESSAGE, {}, sendResponse);
+    // Replies synchronously, so it must not hold the channel open.
+    expect(listener(EXPORT_MESSAGE, {}, sendResponse)).toBe(false);
 
     expect(runExport).not.toHaveBeenCalled();
     expect(sendResponse).toHaveBeenCalledWith({
