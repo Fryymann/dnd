@@ -57,8 +57,10 @@ Run after any change to the manifest, the content script bootstrap, or the popup
       "Not signed in to D&D Beyond."
 - [ ] Open the sheet, then reload the extension without reloading the tab, then export:
       popup says "Reload the character sheet, then try again."
-- [ ] Open the service worker / page console for the popup and the page console for the
-      content script: no JWT appears in either.
+- [ ] Check both consoles for a leaked JWT: right-click inside the popup and choose
+      **Inspect** for the popup's own console, and use the page's DevTools console for
+      the content script. No token-shaped value should appear in either.
+      (There is no background service worker, so there is no third console.)
 
 ## Adding a module
 

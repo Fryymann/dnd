@@ -46,9 +46,20 @@ async function render() {
   for (const entry of entries) {
     const button = document.createElement('button');
     button.textContent = entry.module.actionLabel;
-    button.addEventListener('click', () => runModule(tab, entry, button));
+    button.addEventListener('click', () => {
+      runModule(tab, entry, button).catch((error) => {
+        console.error('[dnd-toolkit] Export failed unexpectedly', error);
+        setStatus('Unexpected error during export.', 'error');
+        button.disabled = false;
+      });
+    });
     modulesEl.append(button);
   }
 }
 
-render();
+// A rejection here leaves the popup blank with no explanation, so it needs an
+// answer of its own rather than an unhandled rejection in the popup console.
+render().catch((error) => {
+  console.error('[dnd-toolkit] Popup failed to render', error);
+  setStatus('Could not read the active tab.', 'error');
+});
