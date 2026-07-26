@@ -46,14 +46,14 @@ describe('formatDateStamp', () => {
 
 describe('buildFilename', () => {
   it('joins prefix, slug, id and date', () => {
-    expect(buildFilename({ name: 'Tythus' }, '168889417', FIXED_DATE)).toBe(
-      'dndbeyond-tythus-168889417-20260725.json',
+    expect(buildFilename({ name: 'Tythus' }, '98057166', FIXED_DATE)).toBe(
+      'dndbeyond-tythus-98057166-20260725.json',
     );
   });
 
   it('omits the name segment entirely when the slug is empty', () => {
-    expect(buildFilename({ name: '！？' }, '168889417', FIXED_DATE)).toBe(
-      'dndbeyond-168889417-20260725.json',
+    expect(buildFilename({ name: '！？' }, '98057166', FIXED_DATE)).toBe(
+      'dndbeyond-98057166-20260725.json',
     );
   });
 
@@ -64,13 +64,13 @@ describe('buildFilename', () => {
 
 describe('buildEnvelope', () => {
   it('wraps the raw character with provenance in a fixed key order', () => {
-    const character = { id: 168889417, name: 'Tythus', spells: [] };
-    const envelope = buildEnvelope('168889417', character, FIXED_DATE);
+    const character = { id: 98057166, name: 'Tythus', spells: [] };
+    const envelope = buildEnvelope('98057166', character, FIXED_DATE);
 
     expect(Object.keys(envelope)).toEqual(['exportedAt', 'source', 'characterId', 'character']);
     expect(envelope.exportedAt).toBe(FIXED_DATE.toISOString());
     expect(envelope.source).toBe('dndbeyond-character-v5');
-    expect(envelope.characterId).toBe('168889417');
+    expect(envelope.characterId).toBe('98057166');
   });
 
   it('passes the character through by reference, unmodified', () => {
@@ -79,6 +79,6 @@ describe('buildEnvelope', () => {
   });
 
   it('stringifies a numeric character id', () => {
-    expect(buildEnvelope(168889417, {}, FIXED_DATE).characterId).toBe('168889417');
+    expect(buildEnvelope(98057166, {}, FIXED_DATE).characterId).toBe('98057166');
   });
 });

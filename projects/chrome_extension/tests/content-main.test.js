@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { registerCharacterExportListener } from '../src/modules/character-export/content-main.js';
 
-const SHEET_URL = 'https://www.dndbeyond.com/characters/168889417';
+const SHEET_URL = 'https://www.dndbeyond.com/characters/98057166';
 
 const setup = (overrides = {}) => {
   const listeners = [];
@@ -35,7 +35,7 @@ describe('registerCharacterExportListener', () => {
     expect(listener(EXPORT_MESSAGE, {}, sendResponse)).toBe(true);
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
 
-    expect(runExport).toHaveBeenCalledWith('168889417');
+    expect(runExport).toHaveBeenCalledWith('98057166');
     expect(sendResponse).toHaveBeenCalledWith({
       ok: true,
       data: { filename: 'a.json', dataUrl: 'data:application/json;base64,e30=' },

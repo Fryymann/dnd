@@ -5,7 +5,7 @@ const FIXED_DATE = new Date(2026, 6, 25, 14, 2, 11, 482);
 
 const deps = (overrides = {}) => ({
   getToken: vi.fn().mockResolvedValue('jwt-value'),
-  getCharacter: vi.fn().mockResolvedValue({ id: 168889417, name: 'Tythus' }),
+  getCharacter: vi.fn().mockResolvedValue({ id: 98057166, name: 'Tythus' }),
   now: () => FIXED_DATE,
   ...overrides,
 });
@@ -19,20 +19,20 @@ const decode = (dataUrl) => {
 describe('exportCharacter', () => {
   it('fetches a fresh token and passes it to the character request', async () => {
     const d = deps();
-    await exportCharacter('168889417', d);
+    await exportCharacter('98057166', d);
     expect(d.getToken).toHaveBeenCalledTimes(1);
-    expect(d.getCharacter).toHaveBeenCalledWith('168889417', 'jwt-value');
+    expect(d.getCharacter).toHaveBeenCalledWith('98057166', 'jwt-value');
   });
 
   it('returns the filename and a data URL holding the envelope', async () => {
-    const result = await exportCharacter('168889417', deps());
+    const result = await exportCharacter('98057166', deps());
 
-    expect(result.filename).toBe('dndbeyond-tythus-168889417-20260725.json');
+    expect(result.filename).toBe('dndbeyond-tythus-98057166-20260725.json');
     expect(decode(result.dataUrl)).toEqual({
       exportedAt: FIXED_DATE.toISOString(),
       source: 'dndbeyond-character-v5',
-      characterId: '168889417',
-      character: { id: 168889417, name: 'Tythus' },
+      characterId: '98057166',
+      character: { id: 98057166, name: 'Tythus' },
     });
   });
 

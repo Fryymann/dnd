@@ -57,13 +57,13 @@ describe('getCobaltToken', () => {
 
 describe('fetchCharacter', () => {
   it('sends the bearer token and unwraps .data', async () => {
-    const character = { id: 168889417, name: 'Tythus' };
+    const character = { id: 98057166, name: 'Tythus' };
     const fetchImpl = vi
       .fn()
       .mockResolvedValue(response(200, { success: true, message: null, data: character }));
 
-    await expect(fetchCharacter('168889417', 'jwt-value', fetchImpl)).resolves.toEqual(character);
-    expect(fetchImpl).toHaveBeenCalledWith(`${CHARACTER_URL}/168889417`, {
+    await expect(fetchCharacter('98057166', 'jwt-value', fetchImpl)).resolves.toEqual(character);
+    expect(fetchImpl).toHaveBeenCalledWith(`${CHARACTER_URL}/98057166`, {
       headers: { Authorization: 'Bearer jwt-value' },
     });
   });

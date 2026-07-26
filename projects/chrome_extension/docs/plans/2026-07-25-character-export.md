@@ -285,13 +285,13 @@ describe('getCobaltToken', () => {
 
 describe('fetchCharacter', () => {
   it('sends the bearer token and unwraps .data', async () => {
-    const character = { id: 168889417, name: 'Tythus' };
+    const character = { id: 98057166, name: 'Tythus' };
     const fetchImpl = vi
       .fn()
       .mockResolvedValue(response(200, { success: true, message: null, data: character }));
 
-    await expect(fetchCharacter('168889417', 'jwt-value', fetchImpl)).resolves.toEqual(character);
-    expect(fetchImpl).toHaveBeenCalledWith(`${CHARACTER_URL}/168889417`, {
+    await expect(fetchCharacter('98057166', 'jwt-value', fetchImpl)).resolves.toEqual(character);
+    expect(fetchImpl).toHaveBeenCalledWith(`${CHARACTER_URL}/98057166`, {
       headers: { Authorization: 'Bearer jwt-value' },
     });
   });
@@ -498,14 +498,14 @@ describe('formatDateStamp', () => {
 
 describe('buildFilename', () => {
   it('joins prefix, slug, id and date', () => {
-    expect(buildFilename({ name: 'Tythus' }, '168889417', FIXED_DATE)).toBe(
-      'dndbeyond-tythus-168889417-20260725.json',
+    expect(buildFilename({ name: 'Tythus' }, '98057166', FIXED_DATE)).toBe(
+      'dndbeyond-tythus-98057166-20260725.json',
     );
   });
 
   it('omits the name segment entirely when the slug is empty', () => {
-    expect(buildFilename({ name: '！？' }, '168889417', FIXED_DATE)).toBe(
-      'dndbeyond-168889417-20260725.json',
+    expect(buildFilename({ name: '！？' }, '98057166', FIXED_DATE)).toBe(
+      'dndbeyond-98057166-20260725.json',
     );
   });
 
@@ -516,13 +516,13 @@ describe('buildFilename', () => {
 
 describe('buildEnvelope', () => {
   it('wraps the raw character with provenance in a fixed key order', () => {
-    const character = { id: 168889417, name: 'Tythus', spells: [] };
-    const envelope = buildEnvelope('168889417', character, FIXED_DATE);
+    const character = { id: 98057166, name: 'Tythus', spells: [] };
+    const envelope = buildEnvelope('98057166', character, FIXED_DATE);
 
     expect(Object.keys(envelope)).toEqual(['exportedAt', 'source', 'characterId', 'character']);
     expect(envelope.exportedAt).toBe(FIXED_DATE.toISOString());
     expect(envelope.source).toBe('dndbeyond-character-v5');
-    expect(envelope.characterId).toBe('168889417');
+    expect(envelope.characterId).toBe('98057166');
   });
 
   it('passes the character through by reference, unmodified', () => {
@@ -531,7 +531,7 @@ describe('buildEnvelope', () => {
   });
 
   it('stringifies a numeric character id', () => {
-    expect(buildEnvelope(168889417, {}, FIXED_DATE).characterId).toBe('168889417');
+    expect(buildEnvelope(98057166, {}, FIXED_DATE).characterId).toBe('98057166');
   });
 });
 ```
@@ -711,14 +711,14 @@ describe('characterExportModule', () => {
 
   it('extracts the character id from every sheet URL shape', () => {
     const urls = [
-      'https://www.dndbeyond.com/characters/168889417',
-      'https://www.dndbeyond.com/characters/168889417/',
-      'https://www.dndbeyond.com/characters/168889417/builder',
-      'https://www.dndbeyond.com/characters/168889417?tab=abilities',
-      'https://www.dndbeyond.com/characters/168889417#inventory',
+      'https://www.dndbeyond.com/characters/98057166',
+      'https://www.dndbeyond.com/characters/98057166/',
+      'https://www.dndbeyond.com/characters/98057166/builder',
+      'https://www.dndbeyond.com/characters/98057166?tab=abilities',
+      'https://www.dndbeyond.com/characters/98057166#inventory',
     ];
     for (const url of urls) {
-      expect(characterExportModule.resolveContext(url)).toEqual({ characterId: '168889417' });
+      expect(characterExportModule.resolveContext(url)).toEqual({ characterId: '98057166' });
     }
   });
 
@@ -726,9 +726,9 @@ describe('characterExportModule', () => {
     const urls = [
       'https://www.dndbeyond.com/characters',
       'https://www.dndbeyond.com/characters/list',
-      'https://www.dndbeyond.com/monsters/168889417',
-      'https://evil.example.com/characters/168889417',
-      'http://www.dndbeyond.com/characters/168889417',
+      'https://www.dndbeyond.com/monsters/98057166',
+      'https://evil.example.com/characters/98057166',
+      'http://www.dndbeyond.com/characters/98057166',
     ];
     for (const url of urls) {
       expect(characterExportModule.resolveContext(url)).toBeNull();
@@ -738,10 +738,10 @@ describe('characterExportModule', () => {
 
 describe('getModulesForUrl', () => {
   it('returns the module and its resolved context on a character sheet', () => {
-    const entries = getModulesForUrl('https://www.dndbeyond.com/characters/168889417');
+    const entries = getModulesForUrl('https://www.dndbeyond.com/characters/98057166');
     expect(entries).toHaveLength(1);
     expect(entries[0].module).toBe(characterExportModule);
-    expect(entries[0].context).toEqual({ characterId: '168889417' });
+    expect(entries[0].context).toEqual({ characterId: '98057166' });
   });
 
   it('returns nothing for an unrelated page', () => {
@@ -1021,7 +1021,7 @@ const FIXED_DATE = new Date(2026, 6, 25, 14, 2, 11, 482);
 
 const deps = (overrides = {}) => ({
   getToken: vi.fn().mockResolvedValue('jwt-value'),
-  getCharacter: vi.fn().mockResolvedValue({ id: 168889417, name: 'Tythus' }),
+  getCharacter: vi.fn().mockResolvedValue({ id: 98057166, name: 'Tythus' }),
   now: () => FIXED_DATE,
   ...overrides,
 });
@@ -1035,20 +1035,20 @@ const decode = (dataUrl) => {
 describe('exportCharacter', () => {
   it('fetches a fresh token and passes it to the character request', async () => {
     const d = deps();
-    await exportCharacter('168889417', d);
+    await exportCharacter('98057166', d);
     expect(d.getToken).toHaveBeenCalledTimes(1);
-    expect(d.getCharacter).toHaveBeenCalledWith('168889417', 'jwt-value');
+    expect(d.getCharacter).toHaveBeenCalledWith('98057166', 'jwt-value');
   });
 
   it('returns the filename and a data URL holding the envelope', async () => {
-    const result = await exportCharacter('168889417', deps());
+    const result = await exportCharacter('98057166', deps());
 
-    expect(result.filename).toBe('dndbeyond-tythus-168889417-20260725.json');
+    expect(result.filename).toBe('dndbeyond-tythus-98057166-20260725.json');
     expect(decode(result.dataUrl)).toEqual({
       exportedAt: FIXED_DATE.toISOString(),
       source: 'dndbeyond-character-v5',
-      characterId: '168889417',
-      character: { id: 168889417, name: 'Tythus' },
+      characterId: '98057166',
+      character: { id: 98057166, name: 'Tythus' },
     });
   });
 
@@ -1127,7 +1127,7 @@ Create `tests/content-main.test.js`:
 import { describe, expect, it, vi } from 'vitest';
 import { registerCharacterExportListener } from '../src/modules/character-export/content-main.js';
 
-const SHEET_URL = 'https://www.dndbeyond.com/characters/168889417';
+const SHEET_URL = 'https://www.dndbeyond.com/characters/98057166';
 
 const setup = (overrides = {}) => {
   const listeners = [];
@@ -1161,7 +1161,7 @@ describe('registerCharacterExportListener', () => {
     expect(listener(EXPORT_MESSAGE, {}, sendResponse)).toBe(true);
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
 
-    expect(runExport).toHaveBeenCalledWith('168889417');
+    expect(runExport).toHaveBeenCalledWith('98057166');
     expect(sendResponse).toHaveBeenCalledWith({
       ok: true,
       data: { filename: 'a.json', dataUrl: 'data:application/json;base64,e30=' },
@@ -1555,7 +1555,7 @@ The file looks like:
 {
   "exportedAt": "2026-07-25T14:02:11.482Z",
   "source": "dndbeyond-character-v5",
-  "characterId": "168889417",
+  "characterId": "98057166",
   "character": { "...": "the raw API payload, verbatim" }
 }
 ```
@@ -1576,7 +1576,7 @@ by hand using the checklist below.
 Run after any change to the manifest, the content script bootstrap, or the popup.
 
 - [ ] Load unpacked; the extension card shows no errors.
-- [ ] Open `https://www.dndbeyond.com/characters/168889417` while signed in.
+- [ ] Open `https://www.dndbeyond.com/characters/98057166` while signed in.
 - [ ] Click the toolbar icon; the popup names the character id and offers the export.
 - [ ] Click **Export character JSON**; the save dialog appears.
 - [ ] Save; the popup shows `Saved dndbeyond-<name>-<id>-<date>.json`.
@@ -1632,7 +1632,7 @@ Expected: PASS, 61 tests, 9 files.
 - [ ] **Step 2: Work through the README checklist**
 
 Follow every box in "Manual verification checklist" in `README.md` against character
-`168889417`.
+`98057166`.
 
 - [ ] **Step 3: Record the outcome**
 

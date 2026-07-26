@@ -11,14 +11,14 @@ describe('characterExportModule', () => {
 
   it('extracts the character id from every sheet URL shape', () => {
     const urls = [
-      'https://www.dndbeyond.com/characters/168889417',
-      'https://www.dndbeyond.com/characters/168889417/',
-      'https://www.dndbeyond.com/characters/168889417/builder',
-      'https://www.dndbeyond.com/characters/168889417?tab=abilities',
-      'https://www.dndbeyond.com/characters/168889417#inventory',
+      'https://www.dndbeyond.com/characters/98057166',
+      'https://www.dndbeyond.com/characters/98057166/',
+      'https://www.dndbeyond.com/characters/98057166/builder',
+      'https://www.dndbeyond.com/characters/98057166?tab=abilities',
+      'https://www.dndbeyond.com/characters/98057166#inventory',
     ];
     for (const url of urls) {
-      expect(characterExportModule.resolveContext(url)).toEqual({ characterId: '168889417' });
+      expect(characterExportModule.resolveContext(url)).toEqual({ characterId: '98057166' });
     }
   });
 
@@ -26,9 +26,9 @@ describe('characterExportModule', () => {
     const urls = [
       'https://www.dndbeyond.com/characters',
       'https://www.dndbeyond.com/characters/list',
-      'https://www.dndbeyond.com/monsters/168889417',
-      'https://evil.example.com/characters/168889417',
-      'http://www.dndbeyond.com/characters/168889417',
+      'https://www.dndbeyond.com/monsters/98057166',
+      'https://evil.example.com/characters/98057166',
+      'http://www.dndbeyond.com/characters/98057166',
     ];
     for (const url of urls) {
       expect(characterExportModule.resolveContext(url)).toBeNull();
@@ -38,10 +38,10 @@ describe('characterExportModule', () => {
 
 describe('getModulesForUrl', () => {
   it('returns the module and its resolved context on a character sheet', () => {
-    const entries = getModulesForUrl('https://www.dndbeyond.com/characters/168889417');
+    const entries = getModulesForUrl('https://www.dndbeyond.com/characters/98057166');
     expect(entries).toHaveLength(1);
     expect(entries[0].module).toBe(characterExportModule);
-    expect(entries[0].context).toEqual({ characterId: '168889417' });
+    expect(entries[0].context).toEqual({ characterId: '98057166' });
   });
 
   it('returns nothing for an unrelated page', () => {

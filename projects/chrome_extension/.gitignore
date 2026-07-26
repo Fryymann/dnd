@@ -1,1 +1,9 @@
 node_modules/
+
+# Real character exports. Generated output, personal data, churns on every
+# test run — keep it out of the repo.
+character_exports/
+
+# Windows "downloaded from the internet" alternate data streams, created
+# whenever an export lands via WSL.
+*:Zone.Identifier

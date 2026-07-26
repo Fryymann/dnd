@@ -24,7 +24,7 @@ The file looks like:
 {
   "exportedAt": "2026-07-25T14:02:11.482Z",
   "source": "dndbeyond-character-v5",
-  "characterId": "168889417",
+  "characterId": "98057166",
   "character": { "...": "the raw API payload, verbatim" }
 }
 ```
@@ -45,7 +45,7 @@ by hand using the checklist below.
 Run after any change to the manifest, the content script bootstrap, or the popup.
 
 - [ ] Load unpacked; the extension card shows no errors.
-- [ ] Open `https://www.dndbeyond.com/characters/168889417` while signed in.
+- [ ] Open `https://www.dndbeyond.com/characters/98057166` while signed in.
 - [ ] Click the toolbar icon; the popup names the character id and offers the export.
 - [ ] Click **Export character JSON**; the save dialog appears.
 - [ ] Save; the popup shows `Saved dndbeyond-<name>-<id>-<date>.json`.

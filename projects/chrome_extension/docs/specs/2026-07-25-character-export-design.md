@@ -14,7 +14,7 @@ that character's complete data as a JSON file.
 
 ## Background: the D&D Beyond API path
 
-Verified live against character 168889417 before this spec was written.
+Verified live against character 98057166 before this spec was written.
 
 1. Site login sets a `CobaltSession` cookie on `dndbeyond.com`.
 2. `POST https://auth-service.dndbeyond.com/v1/cobalt-token` with
@@ -156,7 +156,7 @@ The downloaded file wraps the untouched payload in a small provenance envelope:
 {
   "exportedAt": "2026-07-25T14:02:11.482Z",
   "source": "dndbeyond-character-v5",
-  "characterId": "168889417",
+  "characterId": "98057166",
   "character": { "...": "the raw .data object, verbatim, all 71 top-level keys" }
 }
 ```
@@ -165,7 +165,7 @@ The downloaded file wraps the untouched payload in a small provenance envelope:
 exists so later tooling can tell which endpoint and version produced a file.
 
 Filename: `dndbeyond-<name-slug>-<characterId>-<YYYYMMDD>.json`, for example
-`dndbeyond-tythus-168889417-20260725.json`. The slug lowercases the character name,
+`dndbeyond-tythus-98057166-20260725.json`. The slug lowercases the character name,
 replaces any run of non-alphanumeric characters with a single hyphen, trims leading and
 trailing hyphens, and truncates to 40 characters. If the name slugs to an empty string,
 the name segment is omitted entirely. `saveAs: true`, so the user picks the location.
@@ -208,8 +208,8 @@ Unit tests:
 - `dndbeyond.test.js` — token exchange success; bearer header present on the character
   request; `.data` unwrapping; each status mapped to the right `DndBeyondError` code;
   `success: false` handled.
-- `registry.test.js` — URL matching and id extraction across `/characters/168889417`,
-  `/characters/168889417/builder`, a trailing slash, and a query string; non-character
+- `registry.test.js` — URL matching and id extraction across `/characters/98057166`,
+  `/characters/98057166/builder`, a trailing slash, and a query string; non-character
   D&D Beyond URLs and unrelated origins return no modules.
 - `envelope.test.js` — envelope shape and key order; filename slug over unicode names,
   punctuation, spaces, over-length names, and a name that slugs to empty; date format.
@@ -218,7 +218,7 @@ Unit tests:
 Manual verification, run once and recorded as a checklist in the extension README:
 
 1. Load unpacked from `projects/chrome_extension/`.
-2. Open `https://www.dndbeyond.com/characters/168889417` while signed in.
+2. Open `https://www.dndbeyond.com/characters/98057166` while signed in.
 3. Click the toolbar icon; confirm the popup names the character and offers the export.
 4. Export; confirm the save dialog appears and the file downloads.
 5. Confirm the file parses as JSON and `character` has 71 top-level keys.
