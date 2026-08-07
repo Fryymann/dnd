@@ -526,18 +526,31 @@ class Sheet:
         }
 
 
+HERE = Path(__file__).resolve().parent
+EXPORTS = HERE.parent.parent / "character_exports"
+
+
+def newest_export():
+    """Most recently modified D&D Beyond export, so dropping a new one just works."""
+    files = sorted(EXPORTS.glob("dndbeyond-*.json"),
+                   key=lambda p: p.stat().st_mtime, reverse=True)
+    if not files:
+        sys.exit(f"no dndbeyond-*.json found in {EXPORTS}")
+    return files[0]
+
+
 def main():
-    src = Path(sys.argv[1] if len(sys.argv) > 1
-               else "character_exports/dndbeyond-toki-ironlung.json")
-    dst = Path(sys.argv[2] if len(sys.argv) > 2
-               else "projects/toki_sheet/toki.data.json")
+    # Paths are anchored to this file, not the working directory, so `npm run build`
+    # works from the package directory as well as from the repository root.
+    src = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else newest_export()
+    dst = Path(sys.argv[2]).resolve() if len(sys.argv) > 2 else HERE / "toki.data.json"
     sheet = Sheet(json.loads(src.read_text()))
     data = sheet.build()
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_text(json.dumps(data, separators=(",", ":"), ensure_ascii=False))
 
     d = data["defences"]
-    print(f"{src.stat().st_size/1024:.0f} KB -> {dst.stat().st_size/1024:.0f} KB  {dst}")
+    print(f"{src.name}  {src.stat().st_size/1024:.0f} KB -> {dst.stat().st_size/1024:.0f} KB  {dst.name}")
     print(f"  {data['identity']['name']}  {data['identity']['race']} "
           f"{'/'.join(f'{c['name']} {c['level']}' for c in data['identity']['classes'])}")
     print(f"  AC {d['ac']} ({d['acSource']})  HP {d['hpMax']}  Init {d['initiative']:+d}  "

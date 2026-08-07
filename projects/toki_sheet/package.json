@@ -1,0 +1,13 @@
+{
+  "name": "toki-sheet",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Toki Ironlung digital character sheet — build and tests for the published artifact.",
+  "scripts": {
+    "build": "python3 distill.py && python3 build.py",
+    "test": "node tests/run.js"
+  },
+  "devDependencies": {
+    "jsdom": "^27.0.0"
+  }
+}
