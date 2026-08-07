@@ -1,1 +1,5 @@
 .superpowers/
+
+# Windows "downloaded from the internet" alternate data streams, created
+# whenever an export lands via WSL.
+*:Zone.Identifier
