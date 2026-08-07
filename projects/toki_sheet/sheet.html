@@ -1,0 +1,2352 @@
+<title>Toki Ironlung — Field Console</title>
+<style>/*__FONTS__*/</style>
+<style>
+/* ── tokens ─────────────────────────────────────────────────────────────── */
+:root{
+  --crown:#8C6D14; --crown-lift:#A9841C;
+  --kingfisher:#2C6C92; --verdigris:#3F7657; --ember:#9A5610; --blood:#9C2F28;
+
+  --ground:#E4E6E1; --panel:#F1F2EE; --panel-2:#DADCD5; --sunk:#CFD2CA;
+  --line:#B9BDB3; --line-soft:#C9CDC3;
+  --text:#151A1C; --text-2:#454E51; --text-3:#69726F;
+  --shadow:0 1px 2px rgba(12,16,19,.10);
+  --rail-w:290px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --crown:#C8A33A; --crown-lift:#DFBB55;
+  --kingfisher:#5FA3C9; --verdigris:#6FB08B; --ember:#D2892F; --blood:#CF534A;
+  --ground:#0C1013; --panel:#141A1F; --panel-2:#1C242A; --sunk:#090C0F;
+  --line:#2A343B; --line-soft:#222B31;
+  --text:#E7EBEA; --text-2:#A9B4B6; --text-3:#78868A;
+  --shadow:0 1px 2px rgba(0,0,0,.5);
+}}
+:root[data-theme="dark"]{
+  --crown:#C8A33A; --crown-lift:#DFBB55;
+  --kingfisher:#5FA3C9; --verdigris:#6FB08B; --ember:#D2892F; --blood:#CF534A;
+  --ground:#0C1013; --panel:#141A1F; --panel-2:#1C242A; --sunk:#090C0F;
+  --line:#2A343B; --line-soft:#222B31;
+  --text:#E7EBEA; --text-2:#A9B4B6; --text-3:#78868A;
+  --shadow:0 1px 2px rgba(0,0,0,.5);
+}
+:root[data-theme="light"]{
+  --crown:#8C6D14; --crown-lift:#A9841C;
+  --kingfisher:#2C6C92; --verdigris:#3F7657; --ember:#9A5610; --blood:#9C2F28;
+  --ground:#E4E6E1; --panel:#F1F2EE; --panel-2:#DADCD5; --sunk:#CFD2CA;
+  --line:#B9BDB3; --line-soft:#C9CDC3;
+  --text:#151A1C; --text-2:#454E51; --text-3:#69726F;
+  --shadow:0 1px 2px rgba(12,16,19,.10);
+}
+
+*{box-sizing:border-box;}
+body{
+  margin:0; background:var(--ground); color:var(--text);
+  font-family:'Toki Body',system-ui,sans-serif; font-size:15px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4,.con{font-family:'Toki Console',system-ui,sans-serif;}
+.num,.mono{font-family:'Toki Data',ui-monospace,monospace; font-variant-numeric:tabular-nums;}
+button{font:inherit; color:inherit; background:none; border:none; cursor:pointer;}
+:focus-visible{outline:2px solid var(--crown); outline-offset:2px; border-radius:2px;}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important;}}
+
+/* ── eyebrow / label ────────────────────────────────────────────────────── */
+.eyebrow{
+  font-family:'Toki Console',sans-serif; font-size:10.5px; font-weight:700;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--text-3);
+}
+
+/* ── shell ──────────────────────────────────────────────────────────────── */
+.hud{max-width:1500px; margin:0 auto; padding:0 18px 64px;}
+
+.bar{
+  position:sticky; top:0; z-index:40; background:var(--ground);
+  border-bottom:1px solid var(--line); margin-bottom:20px;
+}
+.bar-in{display:flex; align-items:flex-end; gap:20px; flex-wrap:wrap; padding:16px 0 0;}
+.crest{display:flex; align-items:center; gap:12px; margin-right:auto;}
+.crest svg{width:34px; height:34px; flex:none;}
+.crest h1{
+  margin:0; font-size:25px; font-weight:800; letter-spacing:-.015em; line-height:1;
+}
+.crest .sub{font-size:11.5px; color:var(--text-3); letter-spacing:.03em; margin-top:3px;}
+.crest .sub b{color:var(--crown); font-weight:700;}
+
+.tabs{display:flex; gap:2px; align-self:flex-end;}
+.tab{
+  font-family:'Toki Console',sans-serif; font-size:12px; font-weight:700;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--text-3);
+  padding:9px 15px; border-bottom:2px solid transparent; margin-bottom:-1px;
+}
+.tab:hover{color:var(--text-2);}
+.tab[aria-selected="true"]{color:var(--crown); border-bottom-color:var(--crown);}
+
+.bar-tools{display:flex; gap:6px; align-self:flex-end; padding-bottom:7px;}
+.tool{
+  font-family:'Toki Console',sans-serif; font-size:11px; font-weight:700;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--text-2);
+  border:1px solid var(--line); border-radius:3px; padding:5px 10px; background:var(--panel);
+}
+.tool:hover{border-color:var(--crown); color:var(--crown);}
+
+/* ── grid ───────────────────────────────────────────────────────────────── */
+.grid{display:grid; grid-template-columns:var(--rail-w) minmax(0,1fr); gap:22px; align-items:start;}
+@media (max-width:1080px){.grid{grid-template-columns:1fr;}}
+
+.rail{display:flex; flex-direction:column; gap:12px; position:sticky; top:82px;}
+@media (max-width:1080px){.rail{position:static;}}
+
+/* ── panels ─────────────────────────────────────────────────────────────── */
+.panel{
+  background:var(--panel); border:1px solid var(--line-soft); border-radius:4px;
+  box-shadow:var(--shadow);
+}
+.panel-h{
+  display:flex; align-items:center; gap:8px; justify-content:space-between;
+  padding:9px 13px; border-bottom:1px solid var(--line-soft);
+}
+.panel-b{padding:13px;}
+section.stage-sec{margin-bottom:22px;}
+section.stage-sec > h2{
+  font-size:12px; font-weight:700; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--text-3); margin:0 0 10px; padding-bottom:7px;
+  border-bottom:1px solid var(--line-soft);
+}
+
+/* ── vitals ─────────────────────────────────────────────────────────────── */
+.vital-top{display:grid; grid-template-columns:1fr 1fr 1fr; gap:1px; background:var(--line-soft);}
+.vital{background:var(--panel); padding:11px 8px; text-align:center;}
+.vital .v{font-family:'Toki Data',monospace; font-size:24px; font-weight:700; line-height:1;
+  font-variant-numeric:tabular-nums;}
+.vital .k{font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-3);
+  font-family:'Toki Console',sans-serif; font-weight:700; margin-top:5px;}
+.vital .x{font-size:10px; color:var(--text-3); font-family:'Toki Data',monospace;}
+
+.hp-wrap{padding:13px;}
+.hp-row{display:flex; align-items:baseline; gap:7px; margin-bottom:8px;}
+.hp-cur{font-family:'Toki Data',monospace; font-size:36px; font-weight:700; line-height:.95;
+  font-variant-numeric:tabular-nums;}
+.hp-max{font-family:'Toki Data',monospace; font-size:15px; color:var(--text-3);}
+.hp-temp{
+  margin-left:auto; font-family:'Toki Data',monospace; font-size:12px; font-weight:700;
+  color:var(--kingfisher); border:1px solid var(--kingfisher); border-radius:2px; padding:1px 6px;
+}
+.hp-bonus{
+  font-family:'Toki Data',monospace; font-size:12px; font-weight:700; cursor:help;
+  color:var(--verdigris); border:1px solid var(--verdigris); border-radius:2px; padding:1px 6px;
+}
+.hp-bonus + .hp-temp{margin-left:0;}
+.hp-row .hp-bonus{margin-left:auto;}
+.hp-row .hp-bonus ~ .hp-temp{margin-left:0;}
+
+/* manual HP adjustments — Aid, Heroes' Feast, and setting temp exactly */
+.adj{margin-top:10px; padding-top:10px; border-top:1px solid var(--line-soft);
+  display:flex; flex-direction:column; gap:6px;}
+.adj-row{display:flex; align-items:center; gap:5px;}
+.adj-lab{
+  font-family:'Toki Console',sans-serif; font-size:10px; font-weight:700; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--text-3); flex:1; min-width:0;
+}
+.adj-row input{
+  width:56px; background:var(--sunk); border:1px solid var(--line); border-radius:3px;
+  color:var(--text); padding:4px 6px; font-family:'Toki Data',monospace; font-size:12.5px;
+  text-align:center;
+}
+.adj-row button{
+  font-family:'Toki Console',sans-serif; font-size:10px; font-weight:700; letter-spacing:.1em;
+  text-transform:uppercase; border:1px solid var(--line); border-radius:3px;
+  background:var(--panel-2); padding:4px 9px; color:var(--text-2);
+}
+.adj-row button:hover{border-color:var(--crown); color:var(--crown);}
+.adj-presets{display:flex; gap:4px; flex-wrap:wrap;}
+.adj-presets button{
+  flex:1; font-family:'Toki Data',monospace; font-size:10.5px; padding:4px 6px;
+  border:1px solid var(--line); border-radius:3px; background:var(--panel-2);
+  color:var(--text-2); white-space:nowrap;
+}
+.adj-presets button:hover{border-color:var(--verdigris); color:var(--verdigris);}
+/* segmented armour gauge — 24 plates, filled from the left */
+.gauge{display:flex; gap:2px; height:16px; margin-bottom:10px;}
+.gauge i{flex:1; background:var(--sunk); border-radius:1px; transition:background .18s;}
+.gauge i.on{background:var(--verdigris);}
+.gauge i.on.warn{background:var(--ember);}
+.gauge i.on.crit{background:var(--blood);}
+.gauge i.tmp{background:var(--kingfisher);}
+
+.hp-btns{display:flex; gap:5px; align-items:center;}
+.hp-btns input{
+  width:100%; min-width:0; background:var(--sunk); border:1px solid var(--line);
+  border-radius:3px; color:var(--text); padding:5px 7px; font-family:'Toki Data',monospace;
+  font-size:14px; text-align:center;
+}
+.hp-btns button{
+  font-family:'Toki Console',sans-serif; font-weight:700; font-size:13px; padding:5px 0;
+  border:1px solid var(--line); border-radius:3px; background:var(--panel-2); flex:1;
+  letter-spacing:.04em;
+}
+.hp-btns button.dmg:hover{border-color:var(--blood); color:var(--blood);}
+.hp-btns button.heal:hover{border-color:var(--verdigris); color:var(--verdigris);}
+.hp-btns button.tmp:hover{border-color:var(--kingfisher); color:var(--kingfisher);}
+
+/* ── resource meters ────────────────────────────────────────────────────── */
+.res{padding:10px 13px; border-top:1px solid var(--line-soft);}
+.res:first-child{border-top:none;}
+.res-h{display:flex; align-items:baseline; gap:8px; margin-bottom:6px;}
+.res-h .n{font-family:'Toki Console',sans-serif; font-size:12.5px; font-weight:700; letter-spacing:.02em;}
+.res-h .r{margin-left:auto; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--text-3); font-family:'Toki Console',sans-serif; font-weight:700;}
+.pips{display:flex; gap:3px; flex-wrap:wrap;}
+.pip{
+  width:19px; height:19px; border:1.5px solid var(--line); border-radius:2px;
+  background:var(--sunk); flex:none; transition:all .14s;
+}
+.pip.on{background:var(--crown); border-color:var(--crown);}
+.pip:hover{border-color:var(--crown-lift);}
+.pool{display:flex; align-items:center; gap:7px;}
+.pool-bar{flex:1; height:9px; background:var(--sunk); border-radius:2px; overflow:hidden;}
+.pool-bar i{display:block; height:100%; background:var(--crown); transition:width .2s;}
+.pool-n{font-family:'Toki Data',monospace; font-size:12.5px; font-weight:700; min-width:52px;
+  text-align:right; font-variant-numeric:tabular-nums;}
+.pool-btns{display:flex; gap:3px; margin-top:6px;}
+.pool-btns button{
+  flex:1; font-family:'Toki Data',monospace; font-size:11px; padding:3px 0;
+  border:1px solid var(--line); border-radius:2px; background:var(--panel-2);
+}
+.pool-btns button:hover{border-color:var(--crown); color:var(--crown);}
+
+/* ── slots ──────────────────────────────────────────────────────────────── */
+.slot-row{display:flex; align-items:center; gap:9px; padding:5px 0;}
+.slot-lv{font-family:'Toki Data',monospace; font-size:11px; color:var(--text-3); width:20px; font-weight:700;}
+.derived-note{font-size:10.5px; color:var(--ember); margin-top:8px; line-height:1.4;}
+
+/* ── death saves / conditions ───────────────────────────────────────────── */
+.death{display:flex; gap:14px; align-items:center;}
+.death-g{display:flex; align-items:center; gap:5px;}
+.death-g .lab{font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-3);
+  font-family:'Toki Console',sans-serif; font-weight:700; width:26px;}
+.dot{width:14px; height:14px; border-radius:50%; border:1.5px solid var(--line); background:var(--sunk);}
+.dot.on.ok{background:var(--verdigris); border-color:var(--verdigris);}
+.dot.on.bad{background:var(--blood); border-color:var(--blood);}
+
+.chips{display:flex; flex-wrap:wrap; gap:4px;}
+.chip{
+  font-family:'Toki Console',sans-serif; font-size:10.5px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; padding:3px 8px; border:1px solid var(--line);
+  border-radius:2px; color:var(--text-3); background:var(--panel-2);
+}
+.chip.on{background:var(--blood); border-color:var(--blood); color:#fff;}
+
+/* ── turn planner ───────────────────────────────────────────────────────── */
+.lanes{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px;}
+@media (max-width:1240px){.lanes{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width:620px){.lanes{grid-template-columns:1fr;}}
+.lane{
+  background:var(--panel); border:1px solid var(--line-soft); border-radius:4px;
+  display:flex; flex-direction:column; min-height:220px;
+}
+.lane.filled{border-color:var(--crown);}
+.lane-h{
+  padding:8px 11px; border-bottom:1px solid var(--line-soft);
+  display:flex; align-items:center; gap:7px;
+}
+.lane-h .dotm{width:7px; height:7px; border-radius:50%; background:var(--line); flex:none;}
+.lane.filled .lane-h .dotm{background:var(--crown);}
+.lane-h .t{font-family:'Toki Console',sans-serif; font-size:11px; font-weight:700;
+  letter-spacing:.13em; text-transform:uppercase;}
+.lane-h .clr{margin-left:auto; font-size:15px; line-height:1; color:var(--text-3); padding:0 3px;}
+.lane-h .clr:hover{color:var(--blood);}
+.lane-slot{
+  padding:11px; border-bottom:1px dashed var(--line-soft); min-height:64px;
+  display:flex; flex-direction:column; justify-content:center;
+}
+.lane-slot .empty{font-size:12px; color:var(--text-3); font-style:italic;}
+.lane-slot .pick{font-family:'Toki Console',sans-serif; font-weight:700; font-size:14px;}
+.lane-slot .cost{font-family:'Toki Data',monospace; font-size:11px; color:var(--ember); margin-top:3px;}
+.lane-opts{overflow-y:auto; max-height:290px; padding:4px;}
+.opt{
+  display:block; width:100%; text-align:left; padding:6px 8px; border-radius:3px;
+  font-size:12.5px; line-height:1.35; border:1px solid transparent;
+}
+.opt:hover{background:var(--panel-2); border-color:var(--line);}
+.opt.sel{background:var(--panel-2); border-color:var(--crown);}
+.opt .on{font-family:'Toki Console',sans-serif; font-weight:700;}
+.opt .om{display:block; font-family:'Toki Data',monospace; font-size:10.5px; color:var(--text-3);}
+.opt.spent{opacity:.4;}
+
+/* ── forecast ───────────────────────────────────────────────────────────── */
+.fc{display:grid; grid-template-columns:repeat(auto-fit,minmax(128px,1fr)); gap:1px; background:var(--line-soft);}
+.fc-cell{background:var(--panel); padding:11px 12px;}
+.fc-cell .k{font-family:'Toki Console',sans-serif; font-size:9.5px; font-weight:700;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--text-3);}
+.fc-cell .v{font-family:'Toki Data',monospace; font-size:19px; font-weight:700; margin-top:3px;
+  font-variant-numeric:tabular-nums;}
+.fc-cell .d{font-family:'Toki Data',monospace; font-size:11px; margin-top:1px;}
+.d.down{color:var(--blood);} .d.flat{color:var(--text-3);} .d.up{color:var(--verdigris);}
+
+/* ── damage calculator ──────────────────────────────────────────────────── */
+.calc{display:grid; grid-template-columns:230px minmax(0,1fr); gap:14px;}
+@media (max-width:820px){.calc{grid-template-columns:1fr;}}
+.field{margin-bottom:10px;}
+.field label{display:block; font-family:'Toki Console',sans-serif; font-size:10px; font-weight:700;
+  letter-spacing:.12em; text-transform:uppercase; color:var(--text-3); margin-bottom:4px;}
+.field input[type=number],.field select{
+  width:100%; background:var(--sunk); border:1px solid var(--line); border-radius:3px;
+  color:var(--text); padding:6px 8px; font-family:'Toki Data',monospace; font-size:13px;
+}
+.togs{display:flex; flex-direction:column; gap:5px;}
+.tog{display:flex; align-items:center; gap:8px; font-size:12.5px; cursor:pointer; padding:3px 0;}
+.tog input{accent-color:var(--crown); width:15px; height:15px; flex:none;}
+.tog .hint{color:var(--text-3); font-family:'Toki Data',monospace; font-size:10.5px; margin-left:auto;}
+
+.dmg-out{display:flex; flex-direction:column; gap:10px;}
+.dmg-hero{
+  display:flex; align-items:baseline; gap:12px; padding:13px 15px;
+  background:var(--panel-2); border-radius:4px; border:1px solid var(--line-soft);
+}
+.dmg-hero .big{font-family:'Toki Data',monospace; font-size:40px; font-weight:700; line-height:.9;
+  color:var(--crown); font-variant-numeric:tabular-nums;}
+.dmg-hero .lab{font-family:'Toki Console',sans-serif; font-size:11px; font-weight:700;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--text-3);}
+.dmg-hero .side{margin-left:auto; text-align:right;}
+.dmg-hero .side .n{font-family:'Toki Data',monospace; font-size:17px; font-weight:700;}
+
+.bd{width:100%; border-collapse:collapse; font-size:12.5px;}
+.bd th{
+  font-family:'Toki Console',sans-serif; font-size:9.5px; font-weight:700; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--text-3); text-align:left; padding:5px 8px;
+  border-bottom:1px solid var(--line-soft);
+}
+.bd td{padding:5px 8px; border-bottom:1px solid var(--line-soft);}
+.bd td.n{font-family:'Toki Data',monospace; text-align:right; font-variant-numeric:tabular-nums;}
+.bd tr:last-child td{border-bottom:none;}
+.bd tr.tot td{font-weight:700; border-top:1px solid var(--line); background:var(--panel-2);}
+
+/* ── dice: roll controls, faces, receipts ───────────────────────────────── */
+.roll-bar{display:flex; align-items:center; gap:9px; flex-wrap:wrap;}
+.roll-btn{
+  font-family:'Toki Console',sans-serif; font-size:11.5px; font-weight:700;
+  letter-spacing:.12em; text-transform:uppercase; color:var(--panel);
+  background:var(--crown); border:1px solid var(--crown); border-radius:3px;
+  padding:7px 15px; flex:none;
+}
+.roll-btn:hover{background:var(--crown-lift); border-color:var(--crown-lift);}
+.roll-btn:disabled{background:var(--sunk); border-color:var(--line);
+  color:var(--text-3); cursor:default;}
+.roll-btn.sm{padding:4px 10px; font-size:10px; letter-spacing:.1em;}
+.roll-bar input[type=text], .lane-roll input[type=text]{
+  background:var(--sunk); border:1px solid var(--line); border-radius:3px;
+  color:var(--text); padding:6px 9px; font-family:'Toki Data',monospace; font-size:12px;
+  min-width:0;
+}
+.roll-bar input[type=text]{flex:1;}
+.roll-bar .odds{
+  font-family:'Toki Data',monospace; font-size:11px; color:var(--text-3); white-space:nowrap;
+}
+.lane-roll{display:flex; gap:5px; margin-top:7px;}
+.lane-roll input[type=text]{flex:1; font-size:11px; padding:4px 7px;}
+.lane-receipt{padding:0 11px 11px;}
+
+.receipt{
+  background:var(--panel-2); border:1px solid var(--line-soft); border-left:3px solid var(--line);
+  border-radius:3px; padding:9px 11px; display:flex; flex-direction:column; gap:5px;
+}
+.receipt.hit{border-left-color:var(--verdigris);}
+.receipt.crit{border-left-color:var(--crown);}
+.receipt.miss{border-left-color:var(--blood);}
+.r-head{display:flex; align-items:baseline; gap:9px;}
+.r-name{font-family:'Toki Console',sans-serif; font-weight:700; font-size:13px;}
+.r-verdict{
+  font-family:'Toki Console',sans-serif; font-size:9.5px; font-weight:700; letter-spacing:.14em;
+  padding:1px 6px; border-radius:2px; border:1px solid currentColor;
+}
+.r-verdict.hit{color:var(--verdigris);} .r-verdict.crit{color:var(--crown);}
+.r-verdict.miss{color:var(--blood);}
+.r-total{
+  margin-left:auto; font-size:26px; font-weight:700; line-height:1; color:var(--crown);
+}
+.r-line{display:flex; align-items:center; gap:9px; font-size:12px;}
+.r-src{color:var(--text-2); flex:1; min-width:0;}
+.r-dice{display:flex; align-items:center; gap:3px; flex-wrap:wrap; justify-content:flex-end;}
+.face{
+  display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px;
+  padding:0 4px; border:1px solid var(--line); border-radius:3px; background:var(--panel);
+  font-family:'Toki Data',monospace; font-size:11.5px; font-weight:700;
+  font-variant-numeric:tabular-nums;
+}
+.face.max{border-color:var(--crown); color:var(--crown);}
+.face.min{border-color:var(--blood); color:var(--blood);}
+.face.drop{opacity:.35; text-decoration:line-through;}
+.r-dice .flat{font-family:'Toki Data',monospace; font-size:11.5px; color:var(--text-3);}
+.r-dice .eq{font-size:12.5px; font-weight:700; min-width:38px; text-align:right;}
+.r-note{font-size:11px; color:var(--text-3); font-style:italic;}
+
+.commit-bar{
+  display:flex; align-items:center; gap:9px; padding:11px 13px;
+  border-top:1px solid var(--line-soft); flex-wrap:wrap;
+}
+.commit-note{font-size:11.5px; color:var(--text-3); flex:1; min-width:150px;}
+
+.log-row{
+  display:flex; align-items:baseline; gap:9px; padding:5px 0; font-size:12px;
+  border-bottom:1px solid var(--line-soft);
+}
+.log-row:last-child{border-bottom:none;}
+.log-row .lw{font-family:'Toki Console',sans-serif; font-weight:700; flex:1; min-width:0;}
+.log-row .lv{font-family:'Toki Data',monospace; font-weight:700;}
+.log-row .lf{font-family:'Toki Data',monospace; font-size:10.5px; color:var(--text-3);}
+
+/* ── reaction watchlist ─────────────────────────────────────────────────── */
+.watch{display:grid; grid-template-columns:repeat(auto-fit,minmax(238px,1fr)); gap:10px;}
+.wcard{
+  background:var(--panel); border:1px solid var(--line-soft); border-left:3px solid var(--kingfisher);
+  border-radius:3px; padding:10px 12px;
+}
+.wcard.used{opacity:.45;}
+.wcard h4{margin:0 0 3px; font-size:13.5px; font-weight:700;}
+.wcard .trig{font-size:11.5px; color:var(--text-2); line-height:1.4;}
+.wcard .cst{font-family:'Toki Data',monospace; font-size:10.5px; color:var(--ember); margin-top:5px;}
+
+/* ── playbook ───────────────────────────────────────────────────────────── */
+.plays{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px;}
+.play{
+  background:var(--panel); border:1px solid var(--line-soft); border-radius:4px;
+  display:flex; flex-direction:column; text-align:left; transition:border-color .15s;
+}
+.play:hover{border-color:var(--crown);}
+.play-h{padding:11px 13px 0;}
+.play-h h3{margin:0; font-size:16px; font-weight:800; letter-spacing:-.01em;}
+.play-h .when{font-size:11.5px; color:var(--text-2); margin-top:4px; line-height:1.45;}
+.play-steps{padding:9px 13px; display:flex; flex-direction:column; gap:5px;}
+.step{display:flex; gap:8px; font-size:12.5px; line-height:1.4;}
+.step .sl{
+  font-family:'Toki Console',sans-serif; font-size:9px; font-weight:700; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--text-3); border:1px solid var(--line);
+  border-radius:2px; padding:1px 5px; height:fit-content; flex:none; min-width:52px; text-align:center;
+}
+.step .sl.a{color:var(--crown); border-color:var(--crown);}
+.step .sl.b{color:var(--kingfisher); border-color:var(--kingfisher);}
+.step .sl.r{color:var(--verdigris); border-color:var(--verdigris);}
+.step .sl.m{color:var(--text-3);}
+.play-f{
+  margin-top:auto; padding:9px 13px; border-top:1px solid var(--line-soft);
+  display:flex; align-items:center; gap:9px;
+}
+.play-f .cost{font-family:'Toki Data',monospace; font-size:11px; color:var(--ember);}
+.play-f .load{
+  margin-left:auto; font-family:'Toki Console',sans-serif; font-size:10.5px; font-weight:700;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--crown);
+  border:1px solid var(--crown); border-radius:2px; padding:4px 10px;
+}
+.play-f .load:hover{background:var(--crown); color:var(--panel);}
+.play-h .play-id{
+  font-family:'Toki Data',monospace; font-size:13px; font-weight:700; color:var(--crown);
+  margin-right:3px;
+}
+.play-tags{display:flex; gap:4px; margin-top:6px; flex-wrap:wrap;}
+.ptag{
+  font-family:'Toki Console',sans-serif; font-size:9px; font-weight:700; letter-spacing:.1em;
+  text-transform:uppercase; padding:1px 6px; border-radius:2px;
+  border:1px solid var(--line); color:var(--text-3);
+}
+.play-h .loop{
+  font-family:'Toki Data',monospace; font-size:11px; color:var(--kingfisher);
+  margin-top:7px; line-height:1.45;
+}
+.play-note{
+  margin:0 13px 9px; padding:9px 11px; background:var(--panel-2); border-radius:3px;
+  font-size:12px; line-height:1.5; color:var(--text-2);
+}
+/* inline resource spenders inside play text */
+.tok{
+  display:inline-flex; align-items:baseline; gap:4px; font-family:'Toki Data',monospace;
+  font-size:10.5px; padding:0 5px; border:1px solid var(--crown); border-radius:2px;
+  color:var(--crown); line-height:1.5; vertical-align:baseline; white-space:nowrap;
+}
+.tok:hover{background:var(--crown); color:var(--panel);}
+.tok.dry{border-color:var(--line); color:var(--text-3); cursor:default;}
+.tok.dry:hover{background:none; color:var(--text-3);}
+.drift{
+  border-bottom:1px dotted var(--ember); color:var(--ember); cursor:help;
+  font-size:.94em;
+}
+
+/* decision tree */
+.tree{display:flex; flex-direction:column;}
+.tree-row{
+  display:grid; grid-template-columns:minmax(150px,270px) minmax(0,1fr); gap:14px;
+  padding:9px 13px; border-bottom:1px solid var(--line-soft); align-items:baseline;
+}
+.tree-row:last-child{border-bottom:none;}
+.tree-row .q{font-family:'Toki Console',sans-serif; font-weight:700; font-size:13px;}
+.tree-row .a{font-size:12.5px; color:var(--text-2); line-height:1.5;}
+@media (max-width:640px){.tree-row{grid-template-columns:1fr; gap:3px;}}
+
+/* live campaign panels */
+.arc{
+  background:var(--panel); border:1px solid var(--line-soft);
+  border-left:3px solid var(--kingfisher); border-radius:4px; margin-bottom:22px;
+}
+.arc-h{
+  display:flex; align-items:center; gap:9px; padding:10px 14px;
+  border-bottom:1px solid var(--line-soft); flex-wrap:wrap;
+}
+.arc-h .t{font-family:'Toki Console',sans-serif; font-size:11px; font-weight:700;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--kingfisher);}
+.arc-h .age{margin-left:auto; font-family:'Toki Data',monospace; font-size:10px;
+  color:var(--text-3);}
+.arc-b{padding:12px 14px; font-size:13.5px; line-height:1.6; color:var(--text-2);}
+.arc-b ul{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:5px;}
+.arc-b b, .arc-b strong{color:var(--text);}
+.live-dot{width:7px; height:7px; border-radius:50%; background:var(--verdigris); flex:none;}
+.live-dot.stale{background:var(--ember);}
+.live-dot.off{background:var(--line);}
+.retry{
+  font-family:'Toki Console',sans-serif; font-size:10px; font-weight:700; letter-spacing:.1em;
+  text-transform:uppercase; border:1px solid var(--line); border-radius:2px; padding:3px 9px;
+  color:var(--text-2);
+}
+.retry:hover{border-color:var(--crown); color:var(--crown);}
+
+/* ── sheet ──────────────────────────────────────────────────────────────── */
+.cols{display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:12px; align-items:start;}
+.abils{display:grid; grid-template-columns:repeat(6,1fr); gap:1px; background:var(--line-soft);}
+@media (max-width:700px){.abils{grid-template-columns:repeat(3,1fr);}}
+.abil{background:var(--panel); padding:11px 6px; text-align:center;}
+.abil .k{font-family:'Toki Console',sans-serif; font-size:9.5px; font-weight:700;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--text-3);}
+.abil .m{font-family:'Toki Data',monospace; font-size:26px; font-weight:700; line-height:1.1;}
+.abil .s{font-family:'Toki Data',monospace; font-size:11px; color:var(--text-3);}
+
+.lrow{display:flex; align-items:center; gap:8px; padding:4px 0; font-size:13px;}
+.lrow + .lrow{border-top:1px solid var(--line-soft);}
+.lrow .pf{width:8px; height:8px; border-radius:50%; border:1.5px solid var(--line); flex:none;}
+.lrow .pf.on{background:var(--crown); border-color:var(--crown);}
+.lrow .pf.ex{background:var(--kingfisher); border-color:var(--kingfisher);}
+.lrow .nm{flex:1;}
+.lrow .ab{font-family:'Toki Data',monospace; font-size:10px; color:var(--text-3); text-transform:uppercase;}
+.lrow .vl{font-family:'Toki Data',monospace; font-weight:700; min-width:30px; text-align:right;}
+
+details.item{border-bottom:1px solid var(--line-soft);}
+details.item:last-child{border-bottom:none;}
+details.item > summary{
+  padding:8px 2px; cursor:pointer; display:flex; align-items:center; gap:9px; list-style:none;
+}
+details.item > summary::-webkit-details-marker{display:none;}
+details.item > summary::before{
+  content:"›"; font-family:'Toki Data',monospace; color:var(--text-3); transition:transform .15s;
+  display:inline-block; flex:none;
+}
+details.item[open] > summary::before{transform:rotate(90deg);}
+details.item .nm{font-family:'Toki Console',sans-serif; font-weight:700; font-size:13.5px;}
+details.item .meta{margin-left:auto; font-family:'Toki Data',monospace; font-size:10.5px;
+  color:var(--text-3); text-align:right; flex:none;}
+details.item .body{
+  padding:2px 2px 12px 20px; font-size:13px; color:var(--text-2); white-space:pre-wrap;
+  line-height:1.55; max-width:68ch;
+}
+.was{font-family:'Toki Data',monospace; font-size:10px; color:var(--text-3);}
+.tagm{
+  font-family:'Toki Console',sans-serif; font-size:9px; font-weight:700; letter-spacing:.1em;
+  text-transform:uppercase; padding:1px 5px; border-radius:2px; flex:none;
+  border:1px solid var(--crown); color:var(--crown);
+}
+.tagm.att{border-color:var(--kingfisher); color:var(--kingfisher);}
+.prep{
+  width:15px; height:15px; border:1.5px solid var(--line); border-radius:3px;
+  background:var(--sunk); flex:none; position:relative;
+}
+.prep.on{background:var(--crown); border-color:var(--crown);}
+.prep.on::after{
+  content:"✓"; position:absolute; inset:0; display:flex; align-items:center;
+  justify-content:center; font-size:10px; font-weight:700; color:var(--panel);
+}
+.prep:hover{border-color:var(--crown-lift);}
+details.item.unprepped > summary .nm{color:var(--text-3);}
+.prep-help{
+  padding:8px 13px; font-size:11.5px; line-height:1.45; color:var(--text-3);
+  border-bottom:1px solid var(--line-soft);
+}
+.note-in{
+  border-left:2px solid var(--crown); padding:5px 0 5px 10px; margin:6px 0;
+  font-size:12.5px; color:var(--text-2); font-style:italic;
+}
+
+.scroll{max-height:420px; overflow-y:auto;}
+.tablewrap{overflow-x:auto;}
+
+/* ── codex ──────────────────────────────────────────────────────────────── */
+.prose{font-size:15px; line-height:1.65; max-width:66ch; white-space:pre-wrap; color:var(--text-2);}
+.prose.lead{font-size:16.5px; color:var(--text);}
+.quad{display:grid; grid-template-columns:repeat(auto-fit,minmax(258px,1fr)); gap:12px;}
+.qcard{background:var(--panel); border:1px solid var(--line-soft); border-radius:4px; padding:13px;}
+.qcard h4{
+  margin:0 0 7px; font-size:10px; font-weight:700; letter-spacing:.15em; text-transform:uppercase;
+  color:var(--crown);
+}
+.qcard p{margin:0; font-size:13.5px; line-height:1.55; color:var(--text-2); white-space:pre-wrap;}
+
+.link-out{color:var(--kingfisher); text-decoration:none; border-bottom:1px solid currentColor;}
+.link-out:hover{color:var(--crown);}
+
+/* Notion campaign feed */
+.feed-state{
+  border:1px dashed var(--line); border-radius:4px; padding:20px; text-align:center;
+  background:var(--panel);
+}
+.feed-state .icon{font-family:'Toki Data',monospace; font-size:22px; color:var(--text-3);}
+.feed-state h4{margin:8px 0 5px; font-size:15px;}
+.feed-state p{margin:0 auto; max-width:52ch; font-size:13px; color:var(--text-2); line-height:1.55;}
+
+.stamp{
+  display:flex; align-items:center; gap:8px; font-family:'Toki Data',monospace;
+  font-size:10.5px; color:var(--text-3); padding:14px 2px 0; border-top:1px solid var(--line-soft);
+  margin-top:26px; flex-wrap:wrap;
+}
+.stamp .sep{color:var(--line);}
+</style>
+
+<div class="hud">
+  <div class="bar"><div class="bar-in">
+    <div class="crest">
+      <svg viewBox="0 0 40 40" aria-hidden="true">
+        <!-- Order of the Crown: a crown over a kingfisher's wing -->
+        <path d="M6 25 L4 12 L12 18 L20 7 L28 18 L36 12 L34 25 Z"
+              fill="none" stroke="var(--crown)" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M6 29 H34" stroke="var(--crown)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="20" cy="14.5" r="2" fill="var(--crown)"/>
+      </svg>
+      <div>
+        <h1 id="ch-name">Toki Ironlung</h1>
+        <div class="sub" id="ch-sub"></div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+    <div class="bar-tools">
+      <button class="tool" id="short-rest">Short Rest</button>
+      <button class="tool" id="long-rest">Long Rest</button>
+      <button class="tool" id="reset">Reset</button>
+    </div>
+  </div></div>
+
+  <div class="grid">
+    <aside class="rail" id="rail"></aside>
+    <main id="stage"></main>
+  </div>
+
+  <div class="stamp" id="stamp"></div>
+</div>
+
+<script>
+const DATA = /*__DATA__*/;
+
+/* ══ playbook ══════════════════════════════════════════════════════════════
+   The canonical A–G plays, carried over from the Notion gameplay reference
+   ("Toki Ironlung — Gameplay Reference") and the cowork dev sheet. Steps may
+   embed resource tokens the page turns into live, clickable spenders:
+     [[use:ID]]  a limited-use meter      [[slot:N]]  a spell slot
+     [[pool]]    the Lay on Hands pool    [[drift:text|why]]  a DDB/Notion conflict
+   `lane` maps a step onto the turn planner. */
+const PLAYS = [
+  { id:"A", icon:"🔥", name:"Alpha Strike", tags:["Boss"], situation:"Kill window",
+    when:"Boss fight, an ambush you initiated, or any time you've pre-buffed.",
+    loop:"Precise Strike → Extra Attack → big smite → BA polearm butt",
+    cost:"1 Precise Strike · highest slot",
+    steps:[
+      {lane:"none", text:"<b>Alert</b> wins initiative (+9 — +5 Alert, +4 DEX)."},
+      {lane:"none", text:"Pre-cast <b>Bless</b> if you had a round. [[slot:1]]"},
+      {lane:"move", ref:"Walk (30 ft)", text:"Move into reach — mounted, 60+ ft."},
+      {lane:"action", ref:"Attack (×2)",
+       text:"<b>Attack 1:</b> spend <b>Precise Strike</b> [[use:precise]] → advantage, +1d8 on hit. <b>Attack 2</b> via Extra Attack."},
+      {lane:"action", ref:"Divine Smite",
+       text:"On any hit: <b>Radiant Strikes</b> (+1d8 radiant, automatic) and <b>Divine Smite</b> at your highest slot. [[slot:4]]"},
+      {lane:"bonus", ref:"Pole Strike",
+       text:"Polearm butt-end (1d4+5) <i>or</i> the smite — 2024 makes smite a Bonus Action, so pick one. [[drift:smite is a BA|The Notion playbook and the 2024 rules both treat Divine Smite as a Bonus Action, which collides with Pole Strike. Confirm your table's ruling.]]"},
+      {lane:"reaction", ref:"Reactive Strike", text:"Hold the reaction for a polearm OA or Divine Allegiance."},
+    ],
+    note:"<b>Damage envelope:</b> two Dragonlance attacks (~16 each) + 1d8 Radiant Strikes on each + 1d8 Precise + 5d8 smite + butt-end ≈ <b>65–95 in one round</b>, far more against a dragon with the +3d6 rider." },
+
+  { id:"B", icon:"🛡️", name:"Lockdown Engine", tags:["Horde"], situation:"Swarm control",
+    when:"The default for any fight with three or more enemies. Bread and butter.",
+    loop:"Spirit Guardians → Champion Challenge → walk through them → polearm OAs",
+    cost:"1 3rd-level slot · 1 Channel Divinity",
+    steps:[
+      {lane:"action", ref:"Cast a Spell",
+       text:"Round 1: [[spell:Spirit Guardians]] — concentration, 15-ft aura, 3d8 radiant. [[slot:3]]"},
+      {lane:"bonus", ref:"Knight of the Crown: Commanding Rally",
+       text:"Round 1 BA: <b>Commanding Rally</b> [[use:rally]] for a free ally attack, or animate the shield to free a hand."},
+      {lane:"bonus", ref:"Channel Divinity: Champion Challenge",
+       text:"Round 2: <b>Champion Challenge</b> [[use:cd]] — enemies within 30 ft save vs DC 16 or can't move more than 30 ft from you."},
+      {lane:"move", ref:"Walk (30 ft)",
+       text:"Walk <i>through</i> the cluster — Spirit Guardians ticks them again and halves their speed."},
+      {lane:"action", ref:"Attack (×2)",
+       text:"<b>Push</b> on a pike hit shoves Large-or-smaller 10 ft. Drag stragglers back into the aura, never out of your own reach."},
+      {lane:"reaction", ref:"Reactive Strike",
+       text:"Polearm OAs fire on anything <i>entering</i> your 10-ft reach. Reaction priority: <b>Divine Allegiance</b> → polearm OA."},
+    ],
+    note:"A 25-ft kill zone where enemies take 3d8 on entry, eat an OA plus Radiant Strikes, move at half speed, and can't leave. One concentration spell plus one Channel Divinity locks an entire encounter." },
+
+  { id:"C", icon:"👑", name:"Bodyguard Mode", tags:["Protect"], situation:"Ally about to drop",
+    when:"An ally is being focused, a big AoE is inbound, or someone is condition-locked.",
+    loop:"Warding Bond pre-cast + aura positioning + Divine Allegiance reaction",
+    cost:"1 2nd-level slot · your reaction",
+    steps:[
+      {lane:"none", text:"<b>Warding Bond</b> pre-cast — 1 hour, no concentration; the bonded ally takes half and you take half. [[slot:2]]"},
+      {lane:"none", text:"<b>Aura of Protection</b> (+3 saves within 10 ft) and <b>Aura of Courage</b> (no Frightened in the aura). Position <i>before</i> the AoE lands, not after."},
+      {lane:"reaction", ref:"Divine Allegiance",
+       text:"<b>Divine Allegiance:</b> a hit lands on an ally within 5 ft and <i>you</i> take it instead. No save, no roll — and your table ruling grants you resistance."},
+      {lane:"bonus", ref:"Lay On Hands: Heal",
+       text:"<b>Lay on Hands</b> [[pool]] to heal, or <b>Restoring Touch</b> at 5 HP a condition to strip Blinded, Charmed, Deafened, Frightened, Paralyzed or Stunned. Your answer to \"locked down\", not just \"hurt\"."},
+      {lane:"none", text:"Swap to <b>Crownguard</b> if a hand is free — <b>Sap</b> gives the attacker disadvantage on its next swing."},
+      {lane:"none", text:"Ally at 0: [[spell:Revivify]] within a minute, 300 gp diamond. [[slot:3]] Swap it in on a long rest if you expect to need it."},
+    ],
+    note:"<b>Stacking math:</b> a 40-damage hit on the wizard → Warding Bond halves it (20/20) → Divine Allegiance redirects their 20 to you → you took 40, the wizard took 0. Worth it." },
+
+  { id:"D", icon:"🐉", name:"Dragonslayer", tags:["Dragon","Mounted"], situation:"Dragon fight",
+    when:"Dragons and chromatic captains. This is what the lance is for.",
+    loop:"Mounted + Dragonlance advantage → max smite on a crit → +3d6 rider",
+    cost:"1 Precise Strike · highest slot",
+    steps:[
+      {lane:"move", ref:"Mount up", text:"Mount up — <b>Mounted Combatant</b> gives advantage against unmounted creatures smaller than the mount."},
+      {lane:"none", text:"<b>Dragonlance:</b> advantage vs dragons regardless of size, +3 to attack and damage, +3d6 force on a hit against a dragon — and a dragon ally within 30 ft can react with its own attack."},
+      {lane:"action", ref:"Charge Attack",
+       text:"<b>Charger</b> after a 10+ ft straight-line move: take the <b>+1d8</b>. True dragons are far too big for the push option."},
+      {lane:"action", ref:"Attack (×2)", text:"<b>Precise Strike</b> [[use:precise]] +1d8 on the attack that matters."},
+      {lane:"action", ref:"Divine Smite", text:"<b>Divine Smite</b> at your biggest slot. [[slot:4]] [[drift:not a 5th-level slot|The Notion playbook plans around a 5th-level slot; Toki has none until level 17. No loss — a 4th-level slot already reaches the 5d8 smite maximum, so only the slot level is wrong, not the damage.]]"},
+      {lane:"none", text:"<b>On a crit (18–20 with the lance):</b> double every die — smite, Precise Strike, Charger, Radiant Strikes and the +3d6. Then <b>Death to Dragons</b> adds damage equal to your current hit points."},
+    ],
+    note:"<b>Watch-out:</b> Push only moves Large or smaller. Save it for the dragon's escort, not the dragon." },
+
+  { id:"E", icon:"🌪️", name:"Spellcaster Disruption", tags:["Caster"], situation:"Anti-caster",
+    when:"An enemy lich, evil cleric or hostile wizard with concentration worth breaking.",
+    loop:"Champion Challenge → melee pressure → Command → break concentration",
+    cost:"1 Channel Divinity",
+    steps:[
+      {lane:"bonus", ref:"Channel Divinity: Champion Challenge",
+       text:"<b>Champion Challenge</b> [[use:cd]] to tether them within 30 ft — or <b>Abjure Foes</b> to lock their turn to move <i>or</i> act instead."},
+      {lane:"action", ref:"Attack (×2)",
+       text:"<b>Engage in melee.</b> Every hit forces a concentration save, and <b>Mage Slayer</b> gives them <b>disadvantage</b> on it — not just a higher DC."},
+      {lane:"none", text:"<b>Command</b> — \"Drop\", \"Grovel\", \"Flee\" — WIS save vs DC 16. [[slot:1]]"},
+      {lane:"reaction", ref:"Guarded Mind",
+       text:"They land a save-or-suck on you? <b>Guarded Mind</b> [[use:guarded]] flips one failed INT/WIS/CHA save into a success."},
+    ],
+    note:"<b>Concentration math:</b> two attacks a round, each forcing disadvantage, plus Spirit Guardians ticks — three or more saves per round, all at disadvantage. They will fail." },
+
+  { id:"F", icon:"☁️", name:"Sky Lancer", tags:["Flying","Mounted"], situation:"Mounted",
+    when:"Flying enemies, breath-weapon fights, or any time Alduin is too precious to risk.",
+    loop:"Find Steed at 4th → flying steed → dive-in lance → fly out",
+    cost:"1 4th-level slot",
+    steps:[
+      {lane:"action", ref:"Cast a Spell",
+       text:"<b>Find Steed with a 4th-level slot</b> → the Otherworldly Steed can <b>fly</b>. [[slot:4]] The free once-per-long-rest cast [[use:steed]] is 2nd-level — no flight."},
+      {lane:"move", ref:"Mount up", text:"<b>Mount Up</b> (Squire of Solamnia) — mounting costs only 5 ft of movement."},
+      {lane:"action", ref:"Attack (×2)",
+       text:"<b>Dive:</b> fly in, <b>Precise Strike</b> [[use:precise]] the lance hit, smite if it's worth it, fly out. Melee-only enemies simply cannot answer."},
+      {lane:"none", text:"<b>Mounted Combatant:</b> redirect hits on the steed to yourself; the steed takes zero on a successful DEX save."},
+      {lane:"none", text:"Steed at 0 HP <b>vanishes</b> — <i>you fall.</i> End turns low, or over something forgiving."},
+    ],
+    note:"<b>Alduin is family; the steed is equipment.</b> Dragon fights, breath weapons and castle assaults get the summon. Overland travel, recon and RP get Alduin." },
+
+  { id:"G", icon:"🌀", name:"Aura Sweep", tags:["Horde","Mounted"], situation:"Swarm control",
+    when:"Spirit Guardians is up and the enemy line is spread out instead of clustered on you.",
+    loop:"The mount's 60-ft move drags the aura through them; your Attack ×2 stays free",
+    cost:"1 3rd-level slot · 1 Channel Divinity",
+    steps:[
+      {lane:"none", text:"[[spell:Spirit Guardians]] up [[slot:3]] — protect the concentration."},
+      {lane:"move", ref:"Ride Alduin",
+       text:"<b>Ride the enemy line.</b> The steed's 60-ft speed drags your 15-ft radiant aura across all of them — 3d8 each and half speed. The mount moves; you reap."},
+      {lane:"bonus", ref:"Channel Divinity: Champion Challenge",
+       text:"<b>Champion Challenge</b> [[use:cd]] once you've swept them into a cluster — now they can't leave the aura either."},
+      {lane:"action", ref:"Attack (×2)",
+       text:"<b>Attack ×2</b> from lance reach as you pass. Polearm OAs tag anything entering 10 ft; <b>Push</b> peels stragglers back in."},
+    ],
+    note:"<b>Watch-outs:</b> don't sweep so far that allies fall outside your +3 save aura before a big save. The mount's movement can provoke — eat those on a summoned steed, or redirect with Mounted Combatant." },
+];
+
+/* Turn-by-turn decision tree, from the Notion gameplay reference. */
+const TREE = [
+  ["Concentration active?", "Yes → protect it (move smart). No → Spirit Guardians or Bless on round 1."],
+  ["Enemies within 30 ft and clustered?", "Yes → Champion Challenge. One dangerous enemy instead → Abjure Foes. No → move or Dash to close, and Charger turns that into +1d8 or a push."],
+  ["Two or more allies below half HP?", "Yes → Turn the Tide. Bonus action, mass heal, no slot spent."],
+  ["One ally below half within reach?", "Lay on Hands — or Restoring Touch if they're locked down rather than hurt — or position for Divine Allegiance."],
+  ["Attack 1", "Precise Strike if it's a priority target. The use is only spent if it hits."],
+  ["Attack 2", "Regular swing. Radiant Strikes rides both automatically."],
+  ["On any hit", "Smite decision: crit → biggest slot · boss low → mid slot · random hit → save it."],
+  ["Bonus action", "Commanding Rally › polearm butt (if not smiting) › animate the shield › Lay on Hands."],
+  ["End turn — hold the reaction for", "Polearm OA on reach entry · Divine Allegiance on an ally hit · Save-a-Homie!"],
+];
+
+const SITUATIONS = ["Kill window","Swarm control","Ally about to drop","Dragon fight",
+  "Anti-caster","Mounted"];
+
+const CONDITIONS = ["Blinded","Charmed","Deafened","Exhaustion","Frightened","Grappled",
+  "Incapacitated","Invisible","Paralyzed","Petrified","Poisoned","Prone","Restrained",
+  "Stunned","Unconscious"];
+
+/* ══ state ═══════════════════════════════════════════════════════════════ */
+const KEY = "toki-console-v1";
+const D = DATA.defences;
+
+/* Resource meters the planner and rail both drive. `path` is the action name in
+   the export, so a data refresh keeps maxima in sync automatically. */
+const RESOURCES = [
+  {id:"loh",     label:"Lay on Hands",     pool:true,  max:70, reset:"Long Rest",
+   from:"Lay On Hands: Healing Pool", steps:[1,5,10]},
+  {id:"cd",      label:"Channel Divinity", max:3, reset:"Long Rest", from:"Channel Divinity"},
+  {id:"rally",   label:"Commanding Rally", max:5, reset:"Long Rest",
+   from:"Knight of the Crown: Commanding Rally"},
+  {id:"precise", label:"Precise Strike",   max:5, reset:"Long Rest",
+   from:"Squire of Solamnia: Precise Strike"},
+  {id:"guarded", label:"Guarded Mind",     max:1, reset:"Short Rest", from:"Guarded Mind"},
+  {id:"smite",   label:"Free Smite",       max:1, reset:"Long Rest"},
+  {id:"steed",   label:"Free Find Steed",  max:1, reset:"Long Rest"},
+];
+for (const r of RESOURCES) {
+  const a = DATA.actions.find(x => x.name === r.from);
+  if (a && a.limitedUse && a.limitedUse.max) r.max = a.limitedUse.max;
+}
+
+/* Effective maximum. Aid and Heroes' Feast raise the maximum itself, so it is
+   state, not a constant — everything that clamps or refills reads this. */
+const hpMax = () => D.hpMax + (S.maxBonus || 0);
+
+function blank() {
+  return {
+    hp: D.hpMax, temp: 0, maxBonus: 0, inspiration: DATA.identity.inspiration,
+    conditions: [], death: {ok:0, bad:0},
+    hitDiceUsed: D.hitDice[0].used,
+    slots: Object.fromEntries(DATA.spellcasting.slots.map(s => [s.level, 0])),
+    res: Object.fromEntries(RESOURCES.map(r => [r.id, 0])),
+    prepared: {},
+    rolls: [],
+    laneMod: {action:"", bonus:"", reaction:"", move:""},
+    plan: {action:null, bonus:null, reaction:null, move:null},
+    calc: {ac:17, adv:"normal", smite:0, precise:false, charge:false,
+           undead:false, mounted:false, dragon:false, weapon:0},
+    tab: "turn", playFilter: "All",
+  };
+}
+
+let S;
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY) || "null");
+  S = saved ? {...blank(), ...saved, calc:{...blank().calc, ...(saved.calc||{})},
+               res:{...blank().res, ...(saved.res||{})},
+               slots:{...blank().slots, ...(saved.slots||{})},
+               prepared:{...(saved.prepared||{})},
+               rolls: Array.isArray(saved.rolls) ? saved.rolls.slice(0, 12) : [],
+               laneMod:{...blank().laneMod, ...(saved.laneMod||{})},
+               plan:{...blank().plan, ...(saved.plan||{})}} : blank();
+} catch { S = blank(); }
+
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
+function set(fn) { fn(S); save(); render(); }
+
+/* ══ helpers ═════════════════════════════════════════════════════════════ */
+const el = (t, c, h) => { const n = document.createElement(t);
+  if (c) n.className = c; if (h != null) n.innerHTML = h; return n; };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const sgn = n => (n >= 0 ? "+" : "") + n;
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+const avg = dice => { const m = /(\d+)d(\d+)/.exec(dice || "");
+  return m ? (+m[1]) * ((+m[2]) + 1) / 2 : 0; };
+
+const ability = k => DATA.abilities.find(a => a.key === k);
+
+/* D&D Beyond's export returns `prepared: false` for every spell, including ones
+   the live sheet has prepared, so the field is unusable. The page owns this
+   state instead: seeded from the character's own class list, then yours to
+   correct once — it persists like every other tracker. */
+const isPrepared = sp => sp.alwaysPrepared || !sp.canPrepare
+  ? true : (S.prepared[sp.name] !== false);
+const preparedCount = () =>
+  DATA.spells.filter(s => s.canPrepare && isPrepared(s)).length;
+const actionByName = n => DATA.actions.find(a => a.name === n);
+const resMax = id => RESOURCES.find(r => r.id === id).max;
+const resLeft = id => resMax(id) - (S.res[id] || 0);
+
+/* ══ weapons ═════════════════════════════════════════════════════════════
+   Attack profiles built from the inventory, so renaming an item on D&D Beyond
+   carries straight through. Radiant Strikes (11th) rides every melee hit. */
+const RADIANT = "1d8";
+function weapons() {
+  return DATA.inventory
+    .filter(i => i.type === "Weapon" && i.damage)
+    .map(i => {
+      const finesse = (i.properties||[]).includes("Finesse");
+      const mod = finesse
+        ? Math.max(ability("str").mod, ability("dex").mod) : ability("str").mod;
+      const magic = i.magicBonus || 0;
+      const riders = (i.riders || []).map(r => ({...r, dragon:/dragon/i.test(r.when)}));
+      return {
+        id: i.id, name: i.name, base: i.originalName, dice: i.damage,
+        type: i.damageType, mod, magic, riders,
+        toHit: mod + D.profBonus + magic,
+        crit: /Improved Critical/i.test(i.note || "") ? 18 : 20,
+        note: i.note, props: i.properties || [],
+        reach: (i.properties||[]).includes("Reach"),
+        // The Dragonlance grants advantage against dragons on top of its rider.
+        dragonAdv: riders.some(r => r.dragon),
+      };
+    })
+    .sort((a, b) => (b.magic + b.riders.length * 3) - (a.magic + a.riders.length * 3));
+}
+const WEAPONS = weapons();
+
+/* ══ dice ════════════════════════════════════════════════════════════════
+   Every roll goes through here so the receipt can show individual faces —
+   at the table you want to see the d20 and each damage die, not a mean. */
+const die = faces => 1 + Math.floor(Math.random() * faces);
+
+/* Parse and roll an expression like "2d8+3", "1d10", "+1d4", "-2".
+   `crit` doubles the DICE only, never the flat modifier. */
+function rollExpr(expr, {crit = false} = {}) {
+  const terms = String(expr || "").replace(/\s+/g, "").match(/[+-]?[^+-]+/g) || [];
+  const dice = [];
+  let flat = 0, ok = false;
+  for (const term of terms) {
+    const sign = term.startsWith("-") ? -1 : 1;
+    const body = term.replace(/^[+-]/, "");
+    const m = /^(\d*)d(\d+)$/i.exec(body);
+    if (m) {
+      const count = (+m[1] || 1) * (crit ? 2 : 1);
+      const faces = +m[2];
+      if (!faces || count > 100) continue;
+      for (let i = 0; i < count; i++) dice.push({faces, value: die(faces), sign});
+      ok = true;
+    } else if (/^\d+$/.test(body)) { flat += sign * +body; ok = true; }
+  }
+  const total = dice.reduce((s, x) => s + x.sign * x.value, 0) + flat;
+  return {total, dice, flat, ok};
+}
+
+/* d20 with advantage/disadvantage — keeps both faces so the receipt can show
+   which one was discarded. */
+function rollD20(eff) {
+  const faces = eff === 0 ? [die(20)] : [die(20), die(20)];
+  const kept = eff === 1 ? Math.max(...faces) : eff === -1 ? Math.min(...faces) : faces[0];
+  return {faces, kept, eff};
+}
+
+function logRoll(entry) {
+  S.rolls = [entry, ...(S.rolls || [])].slice(0, 12);
+}
+
+/* A full attack: to-hit, then every damage component rolled individually. */
+function rollAttack(w, c, extra = "") {
+  const o = outcome(w, c);
+  const d20 = rollD20(o.eff);
+  const bonus = w.toHit;
+  const extraRoll = extra ? rollExpr(extra) : null;
+  const toHitExtra = extraRoll && extraRoll.ok ? extraRoll.total : 0;
+  const total = d20.kept + bonus + toHitExtra;
+  const crit = d20.kept >= w.crit;
+  const fumble = d20.kept === 1;
+  const hit = !fumble && (crit || total >= c.ac);
+
+  const rows = hit ? o.rows.map(r => {
+    const expr = (r.dice || "") + (r.flat ? `+${r.flat}` : "");
+    return {src: r.src, roll: rollExpr(expr || "0", {crit: crit && r.doubles})};
+  }) : [];
+  const damage = rows.reduce((s, r) => s + r.roll.total, 0);
+  return {kind:"attack", weapon:w.name, d20, bonus, toHitExtra, total, crit, fumble,
+          hit, ac:c.ac, rows, damage, extra};
+}
+
+/* ══ damage math ═════════════════════════════════════════════════════════ */
+function outcome(w, c) {
+  const critNeed = w.crit;
+  const hitNeed = clamp(c.ac - w.toHit, 2, 20);
+  const pOne = (21 - hitNeed) / 20;                 // any hit, incl. crit
+  const pCritOne = (21 - critNeed) / 20;
+  const adv = c.adv === "adv" ? 1 : c.adv === "dis" ? -1 : 0;
+  // Precise Strike grants advantage on the attack it's spent on, and the
+  // Dragonlance grants it against any dragon regardless of size.
+  const grants = c.precise || (c.dragon && w.dragonAdv);
+  const eff = grants && adv === 0 ? 1 : adv;
+  const roll = (p) => eff === 1 ? 1 - (1-p)**2 : eff === -1 ? p*p : p;
+  const pHit = roll(pOne), pCrit = roll(pCritOne);
+  const pNormal = Math.max(0, pHit - pCrit);
+
+  const rows = [];
+  const push = (src, dice, flat, doubles) =>
+    rows.push({src, dice, flat: flat||0, avg: avg(dice) + (flat||0), doubles: doubles !== false});
+
+  push(`${w.name} ${w.dice}`, w.dice, w.mod + w.magic);
+  push(`Radiant Strikes ${RADIANT}`, RADIANT, 0);
+  if (c.smite > 0) {
+    // 2d8 at 1st level, +1d8 per slot level above that, capped at 5d8, then
+    // +1d8 vs Undead or Fiend. A 4th-level slot already reaches the cap.
+    const n = Math.min(c.smite + 1, 5) + (c.undead ? 1 : 0);
+    push(`Divine Smite ${n}d8`, `${n}d8`, 0);
+  }
+  if (c.precise) push("Precise Strike 1d8", "1d8", 0);
+  if (c.charge)  push("Charge Attack 1d8", "1d8", 0);
+  if (c.dragon) for (const r of w.riders.filter(x => x.dragon))
+    push(`${w.name} vs dragons ${r.dice} ${r.damageType}`, r.dice, 0);
+
+  const onHit  = rows.reduce((t, r) => t + r.avg, 0);
+  const onCrit = rows.reduce((t, r) => t + (r.doubles ? r.avg + avg(r.dice) : r.avg), 0);
+  const expect = pNormal * onHit + pCrit * onCrit;
+  return {rows, pHit, pCrit, pNormal, onHit, onCrit, expect, hitNeed, critNeed, eff};
+}
+
+/* ══ planner options ═════════════════════════════════════════════════════ */
+const LANES = [
+  {id:"action",   label:"Action",       match:a => a.activation === "Action"},
+  {id:"bonus",    label:"Bonus Action", match:a => a.activation === "Bonus Action"},
+  {id:"reaction", label:"Reaction",     match:a => a.activation === "Reaction"},
+  {id:"move",     label:"Movement",     match:() => false},
+];
+
+/* Baseline economy options that aren't rows in the export. */
+const EXTRA = {
+  action: [
+    {name:"Attack (×2)", meta:`Extra Attack · ${WEAPONS[0] ? sgn(WEAPONS[0].toHit) : ""} to hit`},
+    {name:"Dash", meta:`${D.speed*2} ft`}, {name:"Disengage", meta:"—"},
+    {name:"Dodge", meta:"—"}, {name:"Help", meta:"—"}, {name:"Ready", meta:"—"},
+    {name:"Cast a Spell", meta:`DC ${DATA.spellcasting.dc}`},
+  ],
+  bonus: [{name:"Divine Smite", meta:"on a melee hit · costs a slot"}],
+  reaction: [{name:"Opportunity Attack", meta:"—"},
+             {name:"Crownguard", meta:"disadvantage on an attack against an ally"},
+             {name:"Dragon Ally", meta:"a dragon ally attacks after you"}],
+  move: [
+    {name:`Walk (${D.speed} ft)`, meta:"—"},
+    {name:`Dash (${D.speed*2} ft)`, meta:"action"},
+    {name:"Mount up", meta:"5 ft — Mount Up"},
+    ...DATA.steeds.map(s => ({name:`Ride ${s.name}`,
+      meta:(s.movements||[]).map(m => `${m.speed} ft ${m.movementId}`).join(" · ")})),
+    {name:"Save-a-Homie! movement", meta:`up to ${D.speed} ft, no opportunity attacks`},
+  ],
+};
+
+function laneOptions(lane) {
+  const fromExport = DATA.actions
+    .filter(LANES.find(l => l.id === lane).match)
+    .map(a => ({name:a.name, meta:[a.dice, a.limitedUse
+      ? `${resLeftFor(a)} left` : null].filter(Boolean).join(" · ") || "—",
+      spent: a.limitedUse ? resLeftFor(a) === 0 : false}));
+  return [...(EXTRA[lane] || []), ...fromExport];
+}
+function resLeftFor(a) {
+  const r = RESOURCES.find(x => x.from === a.name);
+  if (r) return resLeft(r.id);
+  return a.limitedUse ? a.limitedUse.max - a.limitedUse.used : 0;
+}
+
+/* Which resources a planned round would consume. */
+function forecast() {
+  const cost = {slots:0, slotLevel:0, res:{}};
+  const picks = Object.values(S.plan).filter(Boolean);
+  for (const p of picks) {
+    const r = RESOURCES.find(x => x.from === p);
+    if (r) cost.res[r.id] = (cost.res[r.id] || 0) + 1;
+  }
+  // A smite rides an attack, so a play whose action lane is an attack still costs a
+  // slot even though "Divine Smite" never occupies a lane of its own.
+  const swinging = picks.some(p => /^Attack \(|Charge Attack|Divine Smite/.test(p));
+  if (swinging && S.calc.smite > 0) {
+    cost.slots = 1; cost.slotLevel = S.calc.smite;
+  }
+  if (swinging && S.calc.precise) cost.res.precise = (cost.res.precise || 0) + 1;
+  return cost;
+}
+
+/* ══ live campaign data — Notion ══════════════════════════════════════════
+   Read through the viewer's own Notion connector; nothing is baked in. The
+   page renders fully without it and each panel degrades on its own. */
+const NOTION_SERVER = "Notion";
+const NOTION_PAGES = [
+  {key:"arc",      id:"7b2bf3b8-5f92-4e69-a834-a9e4d326de90",
+   label:"Gameplay Reference", note:"the 🔄 arc block"},
+  {key:"overview", id:"1906e274-cf6f-4a4a-9fb0-ac0a8c198f17",
+   label:"Overview", note:"threads and quests"},
+  {key:"story",    id:"30570c42-5763-4fc1-bd2b-500ffc052420",
+   label:"The Story So Far", note:"campaign recap"},
+];
+
+const notion = {
+  available: null,          // null = not yet determined
+  live: {},                 // key -> {text, storedAt, revalidating}
+  errors: {},               // key -> McpError
+  subs: [],
+};
+
+/* Distinct copy per error code — the contract's central rule is never to
+   collapse these, because each one has a different fix. */
+function notionFix(err) {
+  switch (err && err.code) {
+    case "needs_reauth": return {
+      head:"Notion needs reconnecting",
+      body:"Your Notion connection lapsed. Reconnect it in claude.ai Settings → Connectors, then reload.", retry:false};
+    case "server_not_connected": return {
+      head:"No Notion connector",
+      body:"Add Notion in claude.ai Settings → Connectors to pull the campaign in live.", retry:false};
+    case "selection_required": return {
+      head:"Choose a Notion workspace",
+      body:"You have more than one Notion connector. Pick which to use when claude.ai prompts, then reload.", retry:false};
+    case "blocked_by_policy": return {
+      head:"Blocked by policy",
+      body:"Your organization blocks this Notion tool for artifacts.", retry:false};
+    case "approval_required": return {
+      head:"Needs approval",
+      body:"This Notion tool requires per-call approval, which artifacts can't request yet.", retry:false};
+    case "not_in_manifest": return {
+      head:"Not permitted",
+      body:"This page didn't ask for the Notion tool it just tried to use.", retry:false};
+    case "not_granted": case "capability_disabled": case "capability_removed": return {
+      head:"Live data unavailable here",
+      body:"This view can't reach connectors. Everything else on the sheet still works.", retry:false};
+    case "server_unavailable": case "rate_limited": return {
+      head:"Notion didn't answer",
+      body:"Temporary — the campaign panels will fill in on the next refresh.", retry:true};
+    case "tool_error": return {
+      head:"Notion rejected the request",
+      body:(err.message || "The page may have moved or been deleted."), retry:false};
+    default: return {
+      head:"Couldn't reach Notion",
+      body:(err && err.message) || "Unknown error.", retry:true};
+  }
+}
+/* Authz denials must retract rendered data; transient errors keep last-good. */
+const RETRACTS = new Set(["needs_reauth","server_not_connected","blocked_by_policy",
+                          "approval_required","not_granted","capability_disabled",
+                          "capability_removed","not_in_manifest"]);
+
+async function startNotion() {
+  if (!window.claude || !window.claude.mcp) { notion.available = false; render(); return; }
+  notion.available = true;
+
+  /* Resolve the connector by the tool it exposes rather than trusting a
+     hard-coded display name. listTools() returns this frame's manifest
+     intersected with the viewer's actual connectors, so an empty match means
+     they genuinely have no Notion connector — say that instead of failing
+     three times with a confusing error. */
+  let server = NOTION_SERVER;
+  try {
+    const res = await window.claude.mcp.listTools();
+    const servers = (res && res.servers) || [];
+    const match = servers.find(s => (s.tools || []).some(t => t.name === "notion-fetch"))
+               || servers.find(s => /notion/i.test(s.server));
+    if (match) {
+      server = match.server;
+      if (match.authStatus === "needs_reauth")
+        for (const p of NOTION_PAGES) notion.errors[p.key] = {code:"needs_reauth"};
+    } else {
+      for (const p of NOTION_PAGES) notion.errors[p.key] = {code:"server_not_connected"};
+      render();
+      return;
+    }
+  } catch (e) {
+    // listTools is advisory; fall through and let the watches report the real error.
+  }
+  notion.server = server;
+
+  for (const page of NOTION_PAGES) {
+    try {
+      const un = window.claude.mcp.watchTool(
+        server, "notion-fetch", {id: page.id},
+        ev => {
+          if (ev.type === "data") {
+            const r = ev.result || {};
+            const p = r.payload;
+            const text = typeof p === "string" ? p : (p && p.text) || "";
+            notion.live[page.key] = {
+              text,
+              title: (p && p.title) || page.label,
+              url: (p && p.url) || null,
+              storedAt: r.cache ? r.cache.storedAt : null,
+              revalidating: !!(r.cache && r.cache.revalidating),
+            };
+            delete notion.errors[page.key];
+          } else {
+            notion.errors[page.key] = ev.error || {code:"upstream_error"};
+            if (RETRACTS.has(ev.error && ev.error.code)) delete notion.live[page.key];
+          }
+          render();
+        },
+        {cache:{staleTime:120000}, refetchInterval:300000});
+      notion.subs.push(un);
+    } catch (e) {
+      notion.errors[page.key] = {code:"bad_request", message:String(e && e.message || e)};
+    }
+  }
+}
+
+function refreshNotion() {
+  if (!window.claude || !window.claude.mcp || !window.claude.mcp.invalidate) return;
+  window.claude.mcp.invalidate(notion.server || NOTION_SERVER, "notion-fetch")
+    .catch(() => {});
+}
+
+/* ── Notion-flavored markdown → safe HTML (inline only) ─────────────────── */
+function nmd(s) {
+  return esc(String(s || ""))
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<i>$2</i>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\\([\\`*_~])/g, "$1")
+    .replace(/&lt;mention-page url=&quot;[^&]*&quot;\/&gt;/g, "")
+    .replace(/&lt;[^&]*&gt;/g, "");
+}
+
+/* Pull the 🔄 situational callout the campaign notes keep at the top. */
+function arcBullets(text) {
+  const m = /<callout icon="🔄"[^>]*>([\s\S]*?)<\/callout>/.exec(text || "");
+  if (!m) return null;
+  const lines = m[1].split("\n").map(l => l.replace(/^\t+/, "").trim()).filter(Boolean);
+  const head = lines.length && !lines[0].startsWith("·") ? lines.shift() : null;
+  return {head, bullets: lines.filter(l => l.startsWith("·")).map(l => l.slice(1).trim())};
+}
+
+/* Section headed by a `## Title` or `### Title` line, up to the next heading. */
+function nSection(text, re) {
+  const lines = String(text || "").split("\n");
+  const i = lines.findIndex(l => re.test(l));
+  if (i < 0) return null;
+  const out = [];
+  for (let j = i + 1; j < lines.length; j++) {
+    if (/^#{1,3}\s/.test(lines[j].trim())) break;
+    out.push(lines[j]);
+  }
+  return out.join("\n").trim();
+}
+
+function freshness(entry) {
+  if (!entry) return "";
+  if (entry.revalidating) return "refreshing…";
+  if (!entry.storedAt) return "just now";
+  const mins = Math.round((nowMs() - entry.storedAt) / 60000);
+  return mins < 1 ? "just now" : mins < 60 ? `${mins}m ago`
+    : `${Math.round(mins/60)}h ago`;
+}
+const nowMs = () => Date.now();
+
+/* One live panel: header with a state dot, body from the render fn. */
+function livePanel({key, title, render: body, empty}) {
+  const entry = notion.live[key], err = notion.errors[key];
+  const box = el("div", "arc");
+  const dot = err ? (RETRACTS.has(err.code) ? "off" : "stale") : entry ? "" : "off";
+  let inner;
+  if (entry) {
+    inner = body(entry) || `<span style="color:var(--text-3)">${esc(empty)}</span>`;
+  } else if (err) {
+    const f = notionFix(err);
+    inner = `<b>${esc(f.head)}</b><br>${esc(f.body)}`;
+  } else if (notion.available === false) {
+    inner = `<b>Live data unavailable here</b><br>This view can't reach connectors.
+             Everything else on the sheet still works.`;
+  } else {
+    inner = `<span style="color:var(--text-3)">Reading Notion…</span>`;
+  }
+  box.innerHTML = `
+    <div class="arc-h"><span class="live-dot ${dot}"></span><span class="t">${esc(title)}</span>
+      ${entry && entry.url
+        ? `<a class="link-out" style="font-size:11px" href="${esc(entry.url)}"
+             target="_blank" rel="noopener">open in Notion</a>` : ""}
+      <span class="age">${entry ? esc(freshness(entry)) : ""}</span>
+      ${(err && notionFix(err).retry) || entry
+        ? `<button class="retry" data-notion-refresh>Refresh</button>` : ""}
+    </div>
+    <div class="arc-b">${inner}</div>`;
+  return box;
+}
+
+/* ══ render: rail ════════════════════════════════════════════════════════ */
+function renderRail() {
+  const rail = document.getElementById("rail");
+  rail.textContent = "";
+
+  /* vitals */
+  const p1 = el("div", "panel");
+  const max = hpMax();
+  const hpPct = S.hp / max;
+  const tone = hpPct > .5 ? "" : hpPct > .25 ? "warn" : "crit";
+  const SEG = 24, on = Math.round(clamp(hpPct,0,1) * SEG);
+  const tmpSeg = Math.min(SEG - on, Math.round(S.temp / max * SEG));
+
+  const hp = el("div", "hp-wrap");
+  hp.innerHTML = `
+    <div class="eyebrow">Hit Points</div>
+    <div class="hp-row">
+      <span class="hp-cur" style="color:${hpPct<=.25?"var(--blood)":"inherit"}">${S.hp}</span>
+      <span class="hp-max">/ ${max}</span>
+      ${S.maxBonus ? `<span class="hp-bonus" title="Base ${D.hpMax} + ${S.maxBonus} from an
+        effect like Aid or Heroes' Feast">+${S.maxBonus} MAX</span>` : ""}
+      ${S.temp ? `<span class="hp-temp">+${S.temp} TEMP</span>` : ""}
+    </div>
+    <div class="gauge" role="img" aria-label="${S.hp} of ${max} hit points">
+      ${Array.from({length:SEG}, (_,i) =>
+        i < on ? `<i class="on ${tone}"></i>`
+        : i < on + tmpSeg ? `<i class="tmp"></i>` : "<i></i>").join("")}
+    </div>
+    <div class="hp-btns">
+      <button class="dmg" data-hp="dmg">Damage</button>
+      <input type="number" id="hp-amt" value="5" min="0" aria-label="Amount">
+      <button class="heal" data-hp="heal">Heal</button>
+    </div>
+    <div class="adj">
+      <div class="adj-row">
+        <span class="adj-lab">Temp HP</span>
+        <input type="number" id="temp-set" value="${S.temp}" min="0"
+          aria-label="Temporary hit points">
+        <button data-temp-set title="Set temporary hit points to exactly this">Set</button>
+      </div>
+      <div class="adj-row">
+        <span class="adj-lab">Max bonus</span>
+        <input type="number" id="max-set" value="${S.maxBonus || 0}" min="0"
+          aria-label="Maximum hit point bonus">
+        <button data-max-set title="Set the maximum-HP bonus without changing current HP">Set</button>
+      </div>
+      <div class="adj-presets">
+        <button data-grant="5" title="Aid: maximum and current hit points both rise by 5.
+Cast at a higher level? Click once more for each level above 2nd.">Aid +5</button>
+        <button data-grant="2d10" title="Heroes' Feast: maximum rises by 2d10 and you gain
+that many hit points.">Heroes' Feast 2d10</button>
+        <button data-grant="clear" title="Effect ended — drop the bonus and trim current HP
+back to the normal maximum.">Clear</button>
+      </div>
+    </div>`;
+  p1.append(hp);
+
+  const vt = el("div", "vital-top");
+  vt.innerHTML = [
+    ["AC", D.ac, D.acSource],
+    ["Init", sgn(D.initiative), "Alert +5"],
+    ["Speed", D.speed, "ft"],
+  ].map(([k,v,x]) => `<div class="vital"><div class="v">${v}</div>
+      <div class="k">${k}</div><div class="x">${esc(String(x)).slice(0,22)}</div></div>`).join("");
+  p1.append(vt);
+  rail.append(p1);
+
+  /* passives + hit dice */
+  const p2 = el("div", "panel");
+  p2.innerHTML = `<div class="panel-b" style="display:flex;flex-direction:column;gap:7px">
+    <div class="lrow"><span class="nm">Passive Perception</span>
+      <span class="vl num">${D.passivePerception}</span></div>
+    <div class="lrow"><span class="nm">Passive Investigation</span>
+      <span class="vl num">${D.passiveInvestigation}</span></div>
+    <div class="lrow"><span class="nm">Passive Insight</span>
+      <span class="vl num">${D.passiveInsight}</span></div>
+    <div class="lrow"><span class="nm">Proficiency</span>
+      <span class="vl num">${sgn(D.profBonus)}</span></div>
+    <div class="lrow"><span class="nm">Spell Save DC</span>
+      <span class="vl num">${DATA.spellcasting.dc}</span></div>
+    ${D.climbSpeed ? `<div class="lrow"><span class="nm">Climb Speed</span>
+      <span class="vl num">${D.climbSpeed}</span></div>` : ""}
+    ${(D.senses || []).map(s => {
+      const m = /^(.*?)\s+(\d+)\s*ft/.exec(s);
+      return `<div class="lrow"><span class="nm">${esc(m ? m[1] : s)}</span>
+        <span class="vl num">${m ? m[2] : ""}</span></div>`;
+    }).join("")}
+  </div>`;
+  rail.append(p2);
+
+  /* hit dice */
+  const hd = D.hitDice[0];
+  const p3 = el("div", "panel");
+  const hdLeft = hd.total - S.hitDiceUsed;
+  p3.innerHTML = `<div class="res">
+    <div class="res-h"><span class="n">Hit Dice</span>
+      <span class="r">d${hd.die} · Long Rest</span></div>
+    <div class="pips" data-pips="hitdice">${
+      Array.from({length:hd.total}, (_,i) =>
+        `<button class="pip ${i < hdLeft ? "on":""}" data-i="${i}"
+           aria-label="Hit die ${i+1}"></button>`).join("")}</div>
+  </div>`;
+  rail.append(p3);
+
+  /* resources */
+  const p4 = el("div", "panel");
+  for (const r of RESOURCES) {
+    const used = S.res[r.id] || 0, left = r.max - used;
+    const box = el("div", "res");
+    if (r.pool) {
+      const pct = left / r.max * 100;
+      box.innerHTML = `
+        <div class="res-h"><span class="n">${r.label}</span><span class="r">${r.reset}</span></div>
+        <div class="pool">
+          <div class="pool-bar"><i style="width:${pct}%"></i></div>
+          <span class="pool-n">${left}/${r.max}</span>
+        </div>
+        <div class="pool-btns" data-pool="${r.id}">
+          ${r.steps.map(s => `<button data-d="${s}">−${s}</button>`).join("")}
+          ${r.steps.map(s => `<button data-d="-${s}">+${s}</button>`).join("")}
+        </div>`;
+    } else {
+      box.innerHTML = `
+        <div class="res-h"><span class="n">${r.label}</span><span class="r">${r.reset}</span></div>
+        <div class="pips" data-pips="${r.id}">${
+          Array.from({length:r.max}, (_,i) =>
+            `<button class="pip ${i < left ? "on":""}" data-i="${i}"
+               aria-label="${r.label} ${i+1}"></button>`).join("")}</div>`;
+    }
+    p4.append(box);
+  }
+  rail.append(p4);
+
+  /* spell slots */
+  const p5 = el("div", "panel");
+  const slotBody = el("div", "res");
+  slotBody.innerHTML = `<div class="res-h"><span class="n">Spell Slots</span>
+    <span class="r">Long Rest</span></div>` +
+    DATA.spellcasting.slots.map(s => {
+      const left = s.max - (S.slots[s.level] || 0);
+      return `<div class="slot-row"><span class="slot-lv">${s.level}${
+        ["st","nd","rd","th"][Math.min(s.level-1,3)]}</span>
+        <div class="pips" data-pips="slot-${s.level}" style="flex:1">${
+          Array.from({length:s.max}, (_,i) =>
+            `<button class="pip ${i < left ? "on":""}" data-i="${i}"
+               aria-label="Level ${s.level} slot ${i+1}"></button>`).join("")}</div></div>`;
+    }).join("") +
+    (DATA.spellcasting.slots[0].derived
+      ? `<div class="derived-note">Maxima read from D&amp;D Beyond's own
+         ${esc(DATA.spellcasting.slots[0].derived)} in the export. Its API leaves the
+         live slot counts at zero and computes these client-side.</div>` : "");
+  p5.append(slotBody);
+  rail.append(p5);
+
+  /* death saves + conditions */
+  const p6 = el("div", "panel");
+  p6.innerHTML = `<div class="panel-b">
+    <div class="eyebrow" style="margin-bottom:8px">Death Saves</div>
+    <div class="death">
+      <div class="death-g"><span class="lab">Save</span>
+        <div style="display:flex;gap:5px" data-death="ok">${
+          Array.from({length:3},(_,i)=>`<button class="dot ${i<S.death.ok?"on ok":""}"
+            data-i="${i}" aria-label="Success ${i+1}"></button>`).join("")}</div></div>
+      <div class="death-g"><span class="lab">Fail</span>
+        <div style="display:flex;gap:5px" data-death="bad">${
+          Array.from({length:3},(_,i)=>`<button class="dot ${i<S.death.bad?"on bad":""}"
+            data-i="${i}" aria-label="Failure ${i+1}"></button>`).join("")}</div></div>
+    </div>
+    <div class="eyebrow" style="margin:14px 0 7px">Conditions</div>
+    <div class="chips" data-conds>${CONDITIONS.map(c =>
+      `<button class="chip ${S.conditions.includes(c)?"on":""}" data-c="${c}">${c}</button>`
+      ).join("")}</div>
+  </div>`;
+  rail.append(p6);
+}
+
+/* ══ render: turn planner ════════════════════════════════════════════════ */
+function renderTurn() {
+  const out = el("div");
+
+  /* live arc banner — what's true at the table right now */
+  out.append(livePanel({
+    key:"arc", title:"This arc",
+    empty:"No 🔄 arc block on the gameplay page yet.",
+    render: e => {
+      const arc = arcBullets(e.text);
+      if (!arc) return null;
+      return (arc.head ? `<div style="margin-bottom:8px">${nmd(arc.head)}</div>` : "")
+        + `<ul>${arc.bullets.map(b => `<li>${nmd(b)}</li>`).join("")}</ul>`;
+    },
+  }));
+
+  /* lanes */
+  const s1 = el("section", "stage-sec");
+  s1.append(el("h2", null, "Round — action economy"));
+  const lanes = el("div", "lanes");
+  for (const L of LANES) {
+    const pick = S.plan[L.id];
+    const lane = el("div", "lane" + (pick ? " filled" : ""));
+    const opts = laneOptions(L.id);
+    lane.innerHTML = `
+      <div class="lane-h"><span class="dotm"></span><span class="t">${L.label}</span>
+        ${pick ? `<button class="clr" data-clear="${L.id}" aria-label="Clear ${L.label}">×</button>` : ""}
+      </div>
+      <div class="lane-slot">${pick
+        ? `<span class="pick">${esc(pick)}</span>${
+            costLine(pick) ? `<span class="cost">${costLine(pick)}</span>` : ""}
+           ${rollableExpr(pick) !== null ? `<div class="lane-roll">
+             <button class="roll-btn sm" data-roll-lane="${L.id}">Roll</button>
+             <input type="text" data-lanemod="${L.id}" value="${esc(S.laneMod[L.id] || "")}"
+               placeholder="${esc(rollableExpr(pick) || "+2, +1d4…")}"
+               aria-label="Modifier for ${L.label}">
+           </div>` : ""}`
+        : `<span class="empty">Nothing planned</span>`}</div>
+      ${pick && S.rolls.find(r => r.lane === L.id)
+        ? `<div class="lane-receipt">${rollCard(S.rolls.find(r => r.lane === L.id))}</div>` : ""}
+      <div class="lane-opts" data-lane="${L.id}">${opts.map(o =>
+        `<button class="opt ${o.name===pick?"sel":""} ${o.spent?"spent":""}"
+           data-pick="${esc(o.name)}">
+           <span class="on">${esc(o.name)}</span>
+           <span class="om">${esc(o.meta || "—")}</span></button>`).join("")}</div>`;
+    lanes.append(lane);
+  }
+  s1.append(lanes);
+  out.append(s1);
+
+  /* forecast */
+  const fcost = forecast();
+  const s2 = el("section", "stage-sec");
+  s2.append(el("h2", null, "If you commit this round"));
+  const fc = el("div", "panel");
+  const cells = [];
+  const slotAfter = fcost.slots
+    ? (DATA.spellcasting.slots.find(s => s.level === fcost.slotLevel) || {max:0}).max
+      - (S.slots[fcost.slotLevel]||0) - 1 : null;
+  cells.push(["Hit Points", S.hp, S.temp ? `+${S.temp} temp` : "unchanged", "flat"]);
+  for (const r of RESOURCES) {
+    const spend = fcost.res[r.id] || 0;
+    if (!spend && !["cd","precise"].includes(r.id)) continue;
+    const left = r.max - (S.res[r.id]||0);
+    cells.push([r.label, left - spend,
+      spend ? `−${spend} this round` : "unchanged", spend ? "down" : "flat"]);
+  }
+  if (fcost.slots) cells.push([`Level ${fcost.slotLevel} slots`, Math.max(0, slotAfter),
+    "−1 this round", "down"]);
+  fc.innerHTML = `<div class="fc">${cells.map(([k,v,d,cls]) =>
+    `<div class="fc-cell"><div class="k">${esc(k)}</div>
+      <div class="v">${v}</div><div class="d ${cls}">${esc(d)}</div></div>`).join("")}</div>
+    <div class="commit-bar">
+      <span class="commit-note">Rolling never spends anything. Commit spends the
+        limited uses and smite slot shown above — spell slots you cast from a play's
+        <span class="tok" style="pointer-events:none">L3</span> token are spent when
+        you click the token.</span>
+      <button class="tool" data-clear-plan>Clear plan</button>
+      <button class="roll-btn" data-commit
+        ${Object.values(S.plan).every(x => !x) ? "disabled" : ""}>Commit round</button>
+    </div>`;
+  s2.append(fc);
+  out.append(s2);
+
+  /* damage calculator */
+  const s3 = el("section", "stage-sec");
+  s3.append(el("h2", null, "Damage on the fly"));
+  const w = WEAPONS[S.calc.weapon] || WEAPONS[0];
+  const o = outcome(w, S.calc);
+  const calc = el("div", "panel");
+  const maxSlot = Math.max(0, ...DATA.spellcasting.slots.map(s => s.level));
+
+  calc.innerHTML = `<div class="panel-b calc">
+    <div>
+      <div class="field"><label for="c-w">Weapon</label>
+        <select id="c-w">${WEAPONS.map((x,i) =>
+          `<option value="${i}" ${i===S.calc.weapon?"selected":""}>${esc(x.name)}</option>`
+        ).join("")}</select></div>
+      <div class="field"><label for="c-ac">Target AC</label>
+        <input type="number" id="c-ac" value="${S.calc.ac}" min="1" max="35"></div>
+      <div class="field"><label for="c-adv">Roll</label>
+        <select id="c-adv">
+          <option value="normal" ${S.calc.adv==="normal"?"selected":""}>Normal</option>
+          <option value="adv" ${S.calc.adv==="adv"?"selected":""}>Advantage</option>
+          <option value="dis" ${S.calc.adv==="dis"?"selected":""}>Disadvantage</option>
+        </select></div>
+      <div class="field"><label for="c-sm">Divine Smite slot</label>
+        <select id="c-sm"><option value="0" ${!S.calc.smite?"selected":""}>No smite</option>
+          ${DATA.spellcasting.slots.map(s =>
+            `<option value="${s.level}" ${S.calc.smite===s.level?"selected":""}>Level ${s.level}
+             (${(s.max-(S.slots[s.level]||0))} left)</option>`).join("")}</select></div>
+      <div class="togs">
+        ${[["precise","Precise Strike", `${resLeft("precise")} left · grants advantage`],
+           ["charge","Charge Attack", "+1d8 · 10 ft straight line"],
+           ["dragon","Target is a Dragon",
+            w.dragonAdv ? "advantage + 3d6 force" : "no rider on this weapon"],
+           ["undead","Target is Undead or Fiend", "+1d8 smite"],
+           ["mounted","Mounted on a steed", "advantage vs smaller unmounted"]]
+          .map(([k,l,h]) => `<label class="tog"><input type="checkbox" data-tog="${k}"
+             ${S.calc[k]?"checked":""}><span>${l}</span><span class="hint">${h}</span></label>`
+          ).join("")}
+      </div>
+    </div>
+    <div class="dmg-out">
+      <div class="roll-bar">
+        <button class="roll-btn" data-roll="attack">Roll attack</button>
+        <input type="text" id="atk-mod" value="${esc(S.calc.mod || "")}"
+          placeholder="situational, e.g. +1d4 Bless" aria-label="Situational to-hit modifier">
+        <span class="odds">${(o.pHit*100).toFixed(0)}% hit ·
+          ${(o.pCrit*100).toFixed(1)}% crit · avg ${o.expect.toFixed(1)}</span>
+      </div>
+      ${lastRollCard("attack")}
+      <div class="tablewrap"><table class="bd">
+        <thead><tr><th>Damage on a hit</th><th style="text-align:right">Dice</th>
+          <th style="text-align:right">Crit</th></tr></thead>
+        <tbody>${o.rows.map(r => `<tr><td>${esc(r.src)}</td>
+          <td class="n">${esc(r.dice || "—")}${r.flat ? `+${r.flat}` : ""}</td>
+          <td class="n">${r.doubles && r.dice
+            ? esc(r.dice.replace(/^(\d*)d/, (_, n) => `${(+n||1)*2}d`)) + (r.flat?`+${r.flat}`:"")
+            : "—"}</td></tr>`).join("")}
+          <tr class="tot"><td>Needs ${o.hitNeed}+ to hit · crits on ${o.critNeed}+</td>
+            <td class="n">${o.onHit.toFixed(1)} avg</td>
+            <td class="n">${o.onCrit.toFixed(1)} avg</td></tr></tbody>
+      </table></div>
+      ${w.note ? `<div class="note-in">${esc(w.note)}</div>` : ""}
+      ${/Death to Dragons/i.test(w.note||"")
+        ? `<div class="note-in" style="border-color:var(--blood)">On a crit against a dragon,
+           Death to Dragons adds your current hit points — <b class="num">${S.hp}</b> —
+           on top of the damage rolled above.</div>` : ""}
+    </div>
+  </div>`;
+  s3.append(calc);
+  out.append(s3);
+
+  /* reaction watchlist */
+  const s4 = el("section", "stage-sec");
+  s4.append(el("h2", null, "Reactions — on other people's turns"));
+  const watch = el("div", "watch");
+  for (const r of REACTIONS) {
+    const spent = r.res ? resLeft(r.res) === 0 : false;
+    const c = el("div", "wcard" + (spent ? " used" : ""));
+    c.innerHTML = `<h4>${esc(r.name)}</h4><div class="trig">${esc(r.trigger)}</div>
+      <div class="cst">${esc(r.cost)}</div>`;
+    watch.append(c);
+  }
+  s4.append(watch);
+  out.append(s4);
+
+  /* roll log */
+  if ((S.rolls || []).length) {
+    const sl = el("section", "stage-sec");
+    const h = el("h2", null, "Roll log");
+    sl.append(h);
+    const logPan = el("div", "panel");
+    logPan.innerHTML = `<div class="panel-h"><span class="eyebrow">Most recent first</span>
+        <button class="tool" data-clear-log>Clear</button></div>
+      <div class="panel-b">${S.rolls.map(r => {
+        const faces = (r.kind === "attack" ? r.d20.faces : r.roll.dice.map(d => d.value));
+        const label = r.kind === "attack" ? r.weapon : r.label;
+        const val = r.kind === "attack"
+          ? (r.hit ? `${r.damage} dmg` : r.fumble ? "fumble" : "miss")
+          : r.roll.total;
+        return `<div class="log-row"><span class="lw">${esc(label)}</span>
+          <span class="lf">[${faces.join(", ")}]</span>
+          <span class="lv">${esc(String(val))}</span></div>`;
+      }).join("")}</div>`;
+    sl.append(logPan);
+    out.append(sl);
+  }
+
+  /* decision tree */
+  const s5 = el("section", "stage-sec");
+  s5.append(el("h2", null, "If you're stuck — turn-by-turn"));
+  const tree = el("div", "panel");
+  tree.innerHTML = `<div class="tree">${TREE.map(([q, a]) =>
+    `<div class="tree-row"><div class="q">${esc(q)}</div>
+      <div class="a">${esc(a)}</div></div>`).join("")}</div>`;
+  s5.append(tree);
+  out.append(s5);
+  return out;
+}
+
+/* Faces as chips; a discarded advantage/disadvantage die is struck through. */
+function faceChips(values, keptIndex) {
+  return values.map((v, i) =>
+    `<span class="face ${keptIndex != null && i !== keptIndex ? "drop" : ""}
+      ${v === 20 ? "max" : v === 1 ? "min" : ""}">${v}</span>`).join("");
+}
+
+function rollCard(r) {
+  if (!r) return "";
+  if (r.kind === "simple") {
+    return `<div class="receipt">
+      <div class="r-head"><span class="r-name">${esc(r.label)}</span>
+        <span class="r-total num">${r.roll.total}</span></div>
+      <div class="r-line"><span class="r-src">${esc(r.expr)}</span>
+        <span class="r-dice">${faceChips(r.roll.dice.map(d => d.value))}${
+          r.roll.flat ? `<span class="flat">${sgn(r.roll.flat)}</span>` : ""}</span></div>
+    </div>`;
+  }
+  const keptIdx = r.d20.faces.indexOf(r.d20.kept);
+  const verdict = r.fumble ? "FUMBLE" : r.crit ? "CRIT" : r.hit ? "HIT" : "MISS";
+  const cls = r.fumble ? "miss" : r.crit ? "crit" : r.hit ? "hit" : "miss";
+  return `<div class="receipt ${cls}">
+    <div class="r-head">
+      <span class="r-name">${esc(r.weapon)}</span>
+      <span class="r-verdict ${cls}">${verdict}</span>
+      ${r.hit ? `<span class="r-total num">${r.damage}</span>` : ""}
+    </div>
+    <div class="r-line">
+      <span class="r-src">to hit vs AC ${r.ac}</span>
+      <span class="r-dice">${faceChips(r.d20.faces, r.d20.eff === 0 ? null : keptIdx)}
+        <span class="flat">+${r.bonus}</span>${
+        r.toHitExtra ? `<span class="flat">${sgn(r.toHitExtra)}</span>` : ""}
+        <span class="eq num">= ${r.total}</span></span>
+    </div>
+    ${r.rows.map(row => `<div class="r-line">
+      <span class="r-src">${esc(row.src)}</span>
+      <span class="r-dice">${faceChips(row.roll.dice.map(d => d.value))}${
+        row.roll.flat ? `<span class="flat">${sgn(row.roll.flat)}</span>` : ""}
+        <span class="eq num">= ${row.roll.total}</span></span></div>`).join("")}
+    ${r.crit ? `<div class="r-note">Damage dice doubled on the crit.</div>` : ""}
+    ${!r.hit ? `<div class="r-note">No damage rolled.</div>` : ""}
+  </div>`;
+}
+
+const lastRollCard = kind => {
+  const r = (S.rolls || []).find(x => x.kind === (kind === "attack" ? "attack" : kind));
+  return rollCard(r);
+};
+
+function poleStrike(c) {
+  const w = WEAPONS.find(x => x.reach) || WEAPONS[0];
+  const pole = {...w, dice:"1d4"};
+  return outcome(pole, {...c, smite:0, precise:false, charge:false});
+}
+
+/* What a planned pick rolls, if anything.
+   "" means it is an attack (rolled through the weapon), a dice string means a
+   plain roll, and null means there is nothing to roll. */
+function rollableExpr(pick) {
+  if (/^Attack \(/.test(pick) || pick === "Charge Attack") return "";
+  const a = actionByName(pick);
+  if (a && a.dice) {
+    // Weapon-ish riders add the strength modifier; flat riders do not.
+    const strAdd = /Pole Strike|Charge/.test(a.name) ? ability("str").mod : 0;
+    return a.dice + (strAdd ? `+${strAdd}` : "");
+  }
+  if (/Save-a-Homie/.test(pick)) return `1d${DATA.defences.hitDice[0].die}`;
+  if (/Turn the Tide/.test(pick)) return `1d6+${ability("cha").mod}`;
+  if (/Commanding Rally/.test(pick)) return "1d8";
+  return null;
+}
+
+function rollLane(laneId) {
+  const pick = S.plan[laneId];
+  if (!pick) return;
+  const base = rollableExpr(pick);
+  if (base === null) return;
+  const mod = (S.laneMod[laneId] || "").trim();
+
+  set(s => {
+    let entry;
+    if (base === "") {
+      // Attacks go through the full weapon pipeline so crits and riders apply.
+      const w = WEAPONS[s.calc.weapon] || WEAPONS[0];
+      entry = rollAttack(w, {...s.calc, charge: s.calc.charge || pick === "Charge Attack"}, mod);
+      entry.weapon = `${w.name} — ${pick}`;
+    } else {
+      const expr = base + (mod && !/^[+-]/.test(mod) ? `+${mod}` : mod);
+      entry = {kind:"simple", label:pick, expr, roll: rollExpr(expr)};
+    }
+    entry.lane = laneId;
+    s.rolls = [entry, ...s.rolls.filter(r => r.lane !== laneId)].slice(0, 12);
+  });
+}
+
+/* Spend everything the planned round costs — deliberately separate from rolling,
+   so you can roll freely and only commit once the round actually happens. */
+function commitRound() {
+  const cost = forecast();
+  set(s => {
+    for (const [id, n] of Object.entries(cost.res))
+      s.res[id] = clamp((s.res[id] || 0) + n, 0, resMax(id));
+    if (cost.slots) {
+      const lv = cost.slotLevel;
+      const max = (DATA.spellcasting.slots.find(x => x.level === lv) || {max:0}).max;
+      s.slots[lv] = clamp((s.slots[lv] || 0) + 1, 0, max);
+    }
+    s.plan = {action:null, bonus:null, reaction:null, move:null};
+    s.laneMod = {action:"", bonus:"", reaction:"", move:""};
+    s.rolls = s.rolls.filter(r => !r.lane);
+  });
+}
+
+function costLine(pick) {
+  const r = RESOURCES.find(x => x.from === pick);
+  if (r) return `1 ${r.label} · ${resLeft(r.id)} left`;
+  if (pick === "Divine Smite") return S.calc.smite
+    ? `1 level-${S.calc.smite} slot` : "set a slot in the calculator";
+  return "";
+}
+
+const REACTIONS = [
+  {name:"Reactive Strike", trigger:"A creature enters the 10 ft reach of the Dragonlance. Polearm Master turns entering your reach into the trigger, not leaving it.", cost:"Reaction"},
+  {name:"Divine Allegiance", trigger:"A creature within 5 ft takes damage — take it yourself instead. Cannot be reduced or prevented, but your table ruling grants you resistance.", cost:"Reaction"},
+  {name:"Save-a-Homie!", trigger:"An ally you can see is targeted by an attack or spell. Move into their space, become the target, expend a Hit Die for AC or save bonus.", cost:"Reaction + 1 Hit Die"},
+  {name:"Crownguard", trigger:"An enemy attacks a homie — impose disadvantage. Requires the longsword in hand.", cost:"Reaction"},
+  {name:"Dragon Ally", trigger:"After you attack with the Dragonlance, any dragon ally can use its reaction to make an attack.", cost:"Their reaction"},
+  {name:"Opportunity Attack", trigger:"A creature you can see leaves your reach.", cost:"Reaction"},
+  {name:"Guarded Mind", trigger:"Mage Slayer — shrug off a magical effect you failed a save against.", cost:"1 use · Short Rest", res:"guarded"},
+  {name:"Shield", trigger:"You are hit by an attack — +5 AC until your next turn. Prepared via Magic Initiate.", cost:"1st-level slot"},
+];
+
+/* ══ render: playbook ════════════════════════════════════════════════════ */
+function renderPlaybook() {
+  const out = el("div");
+  const s = el("section", "stage-sec");
+  const used = ["All", ...SITUATIONS.filter(x => PLAYS.some(p => p.situation === x))];
+  const h = el("div", null, `<div class="chips" data-plays style="margin-bottom:14px">${
+    used.map(x => `<button class="chip ${S.playFilter===x?"on":""}" data-f="${esc(x)}">${esc(x)}</button>`
+    ).join("")}</div>`);
+  s.append(el("h2", null, "Plays — built from Toki's kit"), h);
+
+  const grid = el("div", "plays");
+  for (const p of PLAYS.filter(p => S.playFilter === "All" || p.situation === S.playFilter)) {
+    const card = el("article", "play");
+    card.innerHTML = `
+      <div class="play-h">
+        <h3><span class="play-id">${p.icon} ${p.id}</span> ${esc(p.name)}</h3>
+        <div class="play-tags">${p.tags.map(t => `<span class="ptag">${esc(t)}</span>`).join("")}</div>
+        <div class="loop">${esc(p.loop)}</div>
+        <div class="when">${esc(p.when)}</div>
+      </div>
+      <div class="play-steps">${p.steps.map(st => {
+        const cls = {action:"a", bonus:"b", reaction:"r", move:"m", none:"m"}[st.lane];
+        const lab = {action:"Action", bonus:"Bonus", reaction:"React", move:"Move", none:"Free"}[st.lane];
+        return `<div class="step"><span class="sl ${cls}">${lab}</span>
+          <span>${tokens(st.text)}</span></div>`;
+      }).join("")}</div>
+      ${p.note ? `<div class="play-note">${tokens(p.note)}</div>` : ""}
+      <div class="play-f"><span class="cost">${esc(p.cost)}</span>
+        ${p.steps.some(s => s.lane !== "none")
+          ? `<button class="load" data-load="${p.id}">Load into planner</button>`
+          : `<span class="load" style="border-style:dashed;cursor:default;color:var(--text-3);
+               border-color:var(--line)">Costs no round</span>`}</div>`;
+    grid.append(card);
+  }
+  s.append(grid);
+  out.append(s);
+  return out;
+}
+
+/* Inline tokens in play text. Step strings carry trusted authored HTML (bold,
+   italics), so they are not escaped — only the token payloads are. */
+function tokens(html) {
+  return String(html)
+    .replace(/\[\[use:([a-z]+)\]\]/g, (_, id) => {
+      const r = RESOURCES.find(x => x.id === id);
+      if (!r) return "";
+      const left = resLeft(id);
+      return `<button class="tok ${left ? "" : "dry"}" data-spend="${id}"
+        title="Spend one ${esc(r.label)} — ${left} of ${r.max} left"
+        >${esc(r.label)} <b>${left}/${r.max}</b></button>`;
+    })
+    .replace(/\[\[slot:(\d)\]\]/g, (_, lv) => {
+      const slot = DATA.spellcasting.slots.find(x => x.level === +lv);
+      if (!slot) return `<span class="tok dry" title="No level ${lv} slots at Paladin 14">
+        L${lv} <b>—</b></span>`;
+      const left = slot.max - (S.slots[lv] || 0);
+      return `<button class="tok ${left ? "" : "dry"}" data-spend-slot="${lv}"
+        title="Spend a level ${lv} slot — ${left} of ${slot.max} left"
+        >L${lv} <b>${left}/${slot.max}</b></button>`;
+    })
+    .replace(/\[\[pool\]\]/g, () => {
+      const r = RESOURCES.find(x => x.id === "loh");
+      return `<button class="tok" data-spend-pool="5"
+        title="Spend 5 from the Lay on Hands pool">Lay on Hands
+        <b>${r.max - (S.res.loh||0)}/${r.max}</b></button>`;
+    })
+    .replace(/\[\[spell:([^\]]+)\]\]/g, (_, name) => {
+      const sp = DATA.spells.find(x => x.name === name);
+      if (!sp) return `<span class="drift" title="Not on the character sheet at all">
+        ${esc(name)} ⚠</span>`;
+      return isPrepared(sp)
+        ? `<b>${esc(name)}</b>`
+        : `<b>${esc(name)}</b> <span class="drift"
+             title="Not currently prepared — tick it on the Sheet tab if that changed"
+             >not prepared ⚠</span>`;
+    })
+    .replace(/\[\[drift:([^|\]]+)\|([^\]]+)\]\]/g,
+      (_, label, why) => `<span class="drift" title="${esc(why)}">${esc(label)} ⚠</span>`);
+}
+
+function loadPlay(id) {
+  const p = PLAYS.find(x => x.id === id);
+  if (!p) return;
+  set(st => {
+    st.plan = {action:null, bonus:null, reaction:null, move:null};
+    for (const step of p.steps) {
+      if (step.lane === "none") continue;
+      // First step to claim a lane wins; later same-lane steps are riders on it.
+      if (!st.plan[step.lane]) st.plan[step.lane] = step.ref;
+    }
+    if (p.steps.some(s => s.ref === "Divine Smite") && !st.calc.smite) {
+      const top = DATA.spellcasting.slots
+        .filter(s => s.max - (st.slots[s.level]||0) > 0).map(s => s.level).pop();
+      if (top) st.calc.smite = top;
+    }
+    st.calc.precise = p.cost.includes("Precise Strike");
+    st.calc.charge  = p.steps.some(s => s.ref === "Charge Attack");
+    st.calc.mounted = p.tags.includes("Mounted");
+    st.calc.dragon  = p.tags.includes("Dragon");
+    if (st.calc.dragon) {
+      const lance = WEAPONS.findIndex(w => w.dragonAdv);
+      if (lance >= 0) st.calc.weapon = lance;
+    }
+    st.tab = "turn";
+  });
+}
+
+/* ══ render: sheet ═══════════════════════════════════════════════════════ */
+function renderSheet() {
+  const out = el("div");
+
+  const s0 = el("section", "stage-sec");
+  s0.append(el("h2", null, "Abilities"));
+  const ab = el("div", "panel");
+  ab.innerHTML = `<div class="abils">${DATA.abilities.map(a =>
+    `<div class="abil"><div class="k">${a.key}</div>
+      <div class="m">${sgn(a.mod)}</div><div class="s">${a.score}</div></div>`).join("")}</div>`;
+  s0.append(ab);
+  out.append(s0);
+
+  const s1 = el("section", "stage-sec");
+  s1.append(el("h2", null, "Saves &amp; skills"));
+  const cols = el("div", "cols");
+  const saves = el("div", "panel");
+  saves.innerHTML = `<div class="panel-h"><span class="eyebrow">Saving Throws</span>
+    <span class="eyebrow" style="color:var(--crown)">Aura +${DATA.saves[0].aura}</span></div>
+    <div class="panel-b">${DATA.saves.map(s =>
+      `<div class="lrow"><span class="pf ${s.proficient?"on":""}"></span>
+        <span class="nm">${s.name}</span><span class="vl">${sgn(s.value)}</span></div>`).join("")}</div>`;
+  const skills = el("div", "panel");
+  skills.innerHTML = `<div class="panel-h"><span class="eyebrow">Skills</span></div>
+    <div class="panel-b scroll">${DATA.skills.map(s =>
+      `<div class="lrow"><span class="pf ${s.expertise?"ex":s.proficient?"on":""}"></span>
+        <span class="nm">${s.name}</span><span class="ab">${s.ability}</span>
+        <span class="vl">${sgn(s.value)}</span></div>`).join("")}</div>`;
+  cols.append(saves, skills);
+  s1.append(cols);
+  out.append(s1);
+
+  /* attacks */
+  const s2 = el("section", "stage-sec");
+  s2.append(el("h2", null, "Attacks"));
+  const atk = el("div", "panel");
+  atk.innerHTML = `<div class="tablewrap"><table class="bd">
+    <thead><tr><th>Weapon</th><th>To hit</th><th>Damage</th><th>Crit</th><th>Properties</th></tr></thead>
+    <tbody>${WEAPONS.map(w => `<tr>
+      <td><b>${esc(w.name)}</b>${w.base ? ` <span class="was">${esc(w.base)}</span>`:""}</td>
+      <td class="n">${sgn(w.toHit)}</td>
+      <td class="n">${w.dice}${sgn(w.mod + w.magic)} ${esc(w.type||"")} + 1d8 radiant</td>
+      <td class="n">${w.crit}–20</td>
+      <td>${esc((w.props||[]).join(", "))}</td></tr>`).join("")}</tbody>
+  </table></div>`;
+  s2.append(atk);
+  out.append(s2);
+
+  /* actions by economy */
+  const s3 = el("section", "stage-sec");
+  s3.append(el("h2", null, "Actions &amp; features"));
+  const c3 = el("div", "cols");
+  for (const grp of ["Action","Bonus Action","Reaction","Special","No Action"]) {
+    const list = DATA.actions.filter(a => a.activation === grp);
+    if (!list.length) continue;
+    const pan = el("div", "panel");
+    pan.innerHTML = `<div class="panel-h"><span class="eyebrow">${grp}</span>
+        <span class="eyebrow">${list.length}</span></div>
+      <div class="panel-b">${list.map(a => itemBlock({
+        name:a.name, meta:[a.dice, a.limitedUse
+          ? `${resLeftFor(a)}/${a.limitedUse.max} ${a.limitedUse.reset}` : null]
+          .filter(Boolean).join(" · "),
+        body:a.description || a.snippet, note:a.note, tag:a.attack ? "attack" : null,
+      })).join("")}</div>`;
+    c3.append(pan);
+  }
+  s3.append(c3);
+  out.append(s3);
+
+  /* spells */
+  const s4 = el("section", "stage-sec");
+  s4.append(el("h2", null, `Spells — DC ${DATA.spellcasting.dc}, ${sgn(DATA.spellcasting.attack)} to hit`));
+  const spellPan = el("div", "panel");
+  const byLevel = {};
+  for (const sp of DATA.spells) (byLevel[sp.level] ||= []).push(sp);
+  const count = preparedCount(), cap = DATA.spellcasting.preparedMax;
+  spellPan.innerHTML = `
+    <div class="panel-h">
+      <span class="eyebrow">Prepared</span>
+      <span class="eyebrow ${count > cap ? "over" : ""}"
+        style="color:${count > cap ? "var(--blood)" : "var(--crown)"}">${count} / ${cap}</span>
+    </div>
+    <div class="prep-help">D&amp;D Beyond's export reports every spell as unprepared,
+      so this is yours to set. Tick to match your sheet once — it sticks.</div>
+    <div class="panel-b">${Object.keys(byLevel).sort().map(lv => `
+    <div class="eyebrow" style="margin:12px 0 5px;color:var(--crown)">${
+      lv === "0" ? "Cantrips" : `Level ${lv}`}</div>
+    ${byLevel[lv].map(sp => itemBlock({
+      name:sp.name,
+      prep:sp.canPrepare ? isPrepared(sp) : null,
+      meta:[sp.castingTime, sp.concentration ? "Concentration" : null,
+            sp.ritual ? "Ritual" : null, sp.alwaysPrepared ? "Always prepared" : null]
+            .filter(Boolean).join(" · "),
+      body:sp.description, extra:sp.atHigherLevels,
+    })).join("")}`).join("")}</div>`;
+  s4.append(spellPan);
+  out.append(s4);
+
+  /* inventory */
+  const s5 = el("section", "stage-sec");
+  s5.append(el("h2", null, "Inventory"));
+  const c5 = el("div", "cols");
+  const carried = DATA.inventory.filter(i => i.equipped || i.attuned);
+  const rest = DATA.inventory.filter(i => !(i.equipped || i.attuned));
+  for (const [title, list] of [["Equipped &amp; attuned", carried], ["Carried", rest]]) {
+    const pan = el("div", "panel");
+    pan.innerHTML = `<div class="panel-h"><span class="eyebrow">${title}</span>
+        <span class="eyebrow">${list.length}</span></div>
+      <div class="panel-b scroll">${list.map(i => itemBlock({
+        name:i.name, was:i.originalName,
+        meta:[i.rarity, i.quantity > 1 ? `×${i.quantity}` : null,
+              i.attuned ? "Attuned" : null].filter(Boolean).join(" · "),
+        body:i.description || i.snippet, note:i.note,
+      })).join("")}</div>`;
+    c5.append(pan);
+  }
+  s5.append(c5);
+  const money = el("div", "panel");
+  const cur = DATA.identity.currencies;
+  money.innerHTML = `<div class="panel-b" style="display:flex;gap:22px;flex-wrap:wrap">${
+    Object.entries(cur).filter(([,v]) => v).map(([k,v]) =>
+      `<div><div class="eyebrow">${k.toUpperCase()}</div>
+       <div class="num" style="font-size:19px;font-weight:700">${v.toLocaleString()}</div></div>`
+    ).join("")}</div>`;
+  money.style.marginTop = "12px";
+  s5.append(money);
+  out.append(s5);
+
+  /* features + feats */
+  const s6 = el("section", "stage-sec");
+  s6.append(el("h2", null, "Class features &amp; feats"));
+  const c6 = el("div", "cols");
+  const fp = el("div", "panel");
+  fp.innerHTML = `<div class="panel-h"><span class="eyebrow">Paladin — Oath of the Crown</span>
+      <span class="eyebrow">${DATA.features.length}</span></div>
+    <div class="panel-b scroll">${DATA.features.map(f => itemBlock({
+      name:f.name, meta:`Level ${f.level}`, body:f.description || f.snippet,
+    })).join("")}</div>`;
+  const ftp = el("div", "panel");
+  ftp.innerHTML = `<div class="panel-h"><span class="eyebrow">Feats</span>
+      <span class="eyebrow">${DATA.feats.length}</span></div>
+    <div class="panel-b scroll">${DATA.feats.map(f => itemBlock({
+      name:f.name, body:f.description || f.snippet,
+    })).join("")}</div>`;
+  c6.append(fp, ftp);
+  s6.append(c6);
+  out.append(s6);
+
+  /* steeds */
+  const s7 = el("section", "stage-sec");
+  s7.append(el("h2", null, "Steeds"));
+  const c7 = el("div", "cols");
+  for (const st of DATA.steeds) {
+    const pan = el("div", "panel");
+    pan.innerHTML = `<div class="panel-h">
+        <span class="eyebrow" style="color:var(--crown)">${esc(st.name)}</span>
+        <span class="eyebrow">${esc(st.base)}</span></div>
+      <div class="vital-top">
+        <div class="vital"><div class="v">${st.ac}</div><div class="k">AC</div></div>
+        <div class="vital"><div class="v">${st.hpMax}</div><div class="k">HP</div>
+          <div class="x">${esc(st.hitDice||"")}</div></div>
+        <div class="vital"><div class="v">${(st.movements||[])
+          .reduce((m,x)=>Math.max(m,x.speed),0)}</div><div class="k">Speed</div>
+          <div class="x">${esc((st.movements||[]).map(m=>m.movementId).join("/"))}</div></div>
+      </div>
+      <div class="panel-b">
+        ${st.note ? `<div class="note-in">${esc(st.note)}</div>` : ""}
+        ${st.traits ? itemBlock({name:"Traits", body:st.traits}) : ""}
+        ${st.actions ? itemBlock({name:"Actions", body:st.actions}) : ""}
+      </div>`;
+    c7.append(pan);
+  }
+  s7.append(c7);
+  out.append(s7);
+  return out;
+}
+
+function itemBlock({name, was, meta, body, extra, note, tag, prep}) {
+  return `<details class="item ${prep === false ? "unprepped" : ""}"><summary>
+    ${prep === null || prep === undefined ? "" :
+      `<button class="prep ${prep ? "on" : ""}" data-prep="${esc(name)}"
+        title="${prep ? "Prepared — click to unprepare" : "Not prepared — click to prepare"}"
+        aria-label="${prep ? "Prepared" : "Not prepared"}: ${esc(name)}"></button>`}
+    <span class="nm">${esc(name)}</span>
+    ${was ? `<span class="was">${esc(was)}</span>` : ""}
+    ${tag ? `<span class="tagm att">${tag}</span>` : ""}
+    ${note ? `<span class="tagm">note</span>` : ""}
+    <span class="meta">${esc(meta || "")}</span></summary>
+    <div class="body">${note ? `<div class="note-in">${esc(note)}</div>` : ""}${
+      esc(body || "No description in the export.")}${
+      extra ? `\n\n<b>At higher levels.</b> ${esc(extra)}` : ""}</div></details>`;
+}
+
+/* ══ render: codex ═══════════════════════════════════════════════════════ */
+function renderCodex() {
+  const out = el("div");
+  const st = DATA.story, id = DATA.identity;
+
+  const s1 = el("section", "stage-sec");
+  s1.append(el("h2", null, "Who he is"));
+  const p1 = el("div", "panel");
+  p1.innerHTML = `<div class="panel-b">
+    <div class="prose lead">${esc(st.appearance)}</div></div>`;
+  s1.append(p1);
+  const quad = el("div", "quad");
+  quad.style.marginTop = "12px";
+  quad.innerHTML = [
+    ["Personality", st.personality], ["Ideals", st.ideals],
+    ["Bonds", st.bonds], ["Flaws", st.flaws],
+  ].filter(([,v]) => v).map(([k,v]) =>
+    `<div class="qcard"><h4>${k}</h4><p>${esc(v.trim())}</p></div>`).join("");
+  s1.append(quad);
+  out.append(s1);
+
+  const s2 = el("section", "stage-sec");
+  s2.append(el("h2", null, "Backstory"));
+  const p2 = el("div", "panel");
+  p2.innerHTML = `<div class="panel-b"><div class="prose">${esc(st.backstory)}</div></div>`;
+  s2.append(p2);
+  out.append(s2);
+
+  const s3 = el("section", "stage-sec");
+  s3.append(el("h2", null, "Ties"));
+  const c3 = el("div", "quad");
+  c3.innerHTML = [
+    ["Allies", st.allies], ["Enemies", st.enemies],
+    ["Personal possessions", st.possessions],
+    ["Background", `${id.background}\n\n${(id.backgroundDescription||"").slice(0,400)}`],
+  ].filter(([,v]) => v && v.trim()).map(([k,v]) =>
+    `<div class="qcard"><h4>${k}</h4><p>${esc(v.trim())}</p></div>`).join("");
+  s3.append(c3);
+  out.append(s3);
+
+  /* Live campaign, straight from Notion */
+  const s4 = el("section", "stage-sec");
+  s4.append(el("h2", null, "Campaign — live from Notion"));
+  s4.append(livePanel({
+    key:"arc", title:"This arc",
+    empty:"No 🔄 arc block on the gameplay page yet.",
+    render: e => {
+      const arc = arcBullets(e.text);
+      if (!arc) return null;
+      return (arc.head ? `<div style="margin-bottom:8px">${nmd(arc.head)}</div>` : "")
+        + `<ul>${arc.bullets.map(b => `<li>${nmd(b)}</li>`).join("")}</ul>`;
+    },
+  }));
+  s4.append(livePanel({
+    key:"overview", title:"Threads & quests",
+    empty:"Nothing on the overview page yet.",
+    render: e => notionLines(e.text, 22),
+  }));
+  s4.append(livePanel({
+    key:"story", title:"The story so far",
+    empty:"No recap on the story page yet.",
+    render: e => notionLines(e.text, 26),
+  }));
+  out.append(s4);
+  return out;
+}
+
+/* Render a Notion page's prose as a bulleted digest, skipping the structural
+   tags the enhanced-markdown format wraps content in. */
+function notionLines(text, limit) {
+  const skip = /^(<|\{|\}|---|\||#|\[)/;
+  const lines = String(text || "").split("\n")
+    .map(l => l.replace(/^[\t·\-*\s]+/, "").trim())
+    .filter(l => l && !skip.test(l) && l.length > 3)
+    .slice(0, limit);
+  if (!lines.length) return null;
+  return `<ul>${lines.map(l => `<li>${nmd(l)}</li>`).join("")}</ul>`;
+}
+
+/* ══ shell ═══════════════════════════════════════════════════════════════ */
+const TABS = [
+  {id:"turn", label:"Turn", render:renderTurn},
+  {id:"playbook", label:"Playbook", render:renderPlaybook},
+  {id:"sheet", label:"Sheet", render:renderSheet},
+  {id:"codex", label:"Codex", render:renderCodex},
+];
+
+function render() {
+  const id = DATA.identity;
+  document.getElementById("ch-sub").innerHTML =
+    `${esc(id.race)} · ${id.classes.map(c => `${esc(c.name)} ${c.level}`).join(" / ")}
+     · <b>${esc(id.classes[0].subclass || "")}</b> · ${esc(id.background)}`;
+
+  const tabs = document.getElementById("tabs");
+  tabs.textContent = "";
+  for (const t of TABS) {
+    const b = el("button", "tab", t.label);
+    b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", String(S.tab === t.id));
+    b.onclick = () => set(s => { s.tab = t.id; });
+    tabs.append(b);
+  }
+
+  renderRail();
+  const stage = document.getElementById("stage");
+  stage.textContent = "";
+  stage.append((TABS.find(t => t.id === S.tab) || TABS[0]).render());
+
+  const ex = new Date(DATA.exportedAt);
+  document.getElementById("stamp").innerHTML =
+    `<span>Character data exported ${ex.toISOString().slice(0,10)} from D&amp;D Beyond</span>
+     <span class="sep">/</span><span>${esc(DATA.source)}</span>
+     <span class="sep">/</span>
+     <a class="link-out" href="${esc(id.url)}" target="_blank" rel="noopener">Sheet on D&amp;D Beyond</a>
+     <span class="sep">/</span><span>Table state saved in this browser</span>`;
+}
+
+/* ══ events ══════════════════════════════════════════════════════════════ */
+document.addEventListener("click", e => {
+  const t = e.target.closest("button, .chip, .pip, .dot, .opt");
+  if (!t) return;
+
+  const hp = t.dataset.hp;
+  if (hp) {
+    const amt = Math.max(0, +document.getElementById("hp-amt").value || 0);
+    return set(s => {
+      if (hp === "heal") { s.hp = clamp(s.hp + amt, 0, hpMax()); s.death = {ok:0,bad:0}; return; }
+      const soak = Math.min(s.temp, amt);   // temporary hit points are spent first
+      s.temp -= soak;
+      s.hp = clamp(s.hp - (amt - soak), 0, hpMax());
+    });
+  }
+
+  if (t.hasAttribute("data-temp-set")) {
+    const v = Math.max(0, +document.getElementById("temp-set").value || 0);
+    return set(s => { s.temp = v; });
+  }
+
+  if (t.hasAttribute("data-max-set")) {
+    const v = Math.max(0, +document.getElementById("max-set").value || 0);
+    return set(s => { s.maxBonus = v; s.hp = Math.min(s.hp, hpMax()); });
+  }
+
+  if (t.dataset.grant) {
+    const g = t.dataset.grant;
+    return set(s => {
+      if (g === "clear") {                 // the effect ended: max drops, HP follows it down
+        s.maxBonus = 0;
+        s.hp = Math.min(s.hp, hpMax());
+        return;
+      }
+      // Aid and Heroes' Feast each raise the maximum AND grant that many hit points.
+      const roll = /d/.test(g) ? rollExpr(g) : null;
+      const gained = roll ? roll.total : +g;
+      s.maxBonus = (s.maxBonus || 0) + gained;
+      s.hp = clamp(s.hp + gained, 0, hpMax());
+      if (roll) logRoll({kind:"simple", label:"Heroes' Feast", expr:g, roll});
+    });
+  }
+
+  const pips = t.parentElement?.dataset?.pips;
+  if (pips) {
+    const i = +t.dataset.i;
+    return set(s => {
+      if (pips === "hitdice") {
+        const total = D.hitDice[0].total;
+        s.hitDiceUsed = clamp(total - (i + (t.classList.contains("on") ? 0 : 1)), 0, total);
+      } else if (pips.startsWith("slot-")) {
+        const lv = +pips.slice(5);
+        const max = DATA.spellcasting.slots.find(x => x.level === lv).max;
+        s.slots[lv] = clamp(max - (i + (t.classList.contains("on") ? 0 : 1)), 0, max);
+      } else {
+        const max = resMax(pips);
+        s.res[pips] = clamp(max - (i + (t.classList.contains("on") ? 0 : 1)), 0, max);
+      }
+    });
+  }
+
+  const pool = t.parentElement?.dataset?.pool;
+  if (pool) {
+    const d = +t.dataset.d;
+    return set(s => { s.res[pool] = clamp((s.res[pool]||0) + d, 0, resMax(pool)); });
+  }
+
+  const death = t.parentElement?.dataset?.death;
+  if (death) {
+    const i = +t.dataset.i;
+    return set(s => {
+      s.death[death] = i + (t.classList.contains("on") ? 0 : 1);
+    });
+  }
+
+  if (t.parentElement?.hasAttribute?.("data-conds")) {
+    const c = t.dataset.c;
+    return set(s => {
+      s.conditions = s.conditions.includes(c)
+        ? s.conditions.filter(x => x !== c) : [...s.conditions, c];
+    });
+  }
+
+  if (t.parentElement?.hasAttribute?.("data-plays"))
+    return set(s => { s.playFilter = t.dataset.f; });
+
+  if (t.hasAttribute("data-notion-refresh")) return refreshNotion();
+
+  if (t.dataset.prep) {
+    e.preventDefault();                  // don't toggle the <details> underneath
+    const n = t.dataset.prep;
+    return set(s => { s.prepared[n] = !(s.prepared[n] !== false); });
+  }
+
+  if (t.dataset.spend) {
+    const id = t.dataset.spend;
+    if (!resLeft(id)) return;
+    return set(s => { s.res[id] = clamp((s.res[id]||0) + 1, 0, resMax(id)); });
+  }
+  if (t.dataset.spendSlot) {
+    const lv = +t.dataset.spendSlot;
+    const slot = DATA.spellcasting.slots.find(x => x.level === lv);
+    if (!slot || slot.max - (S.slots[lv]||0) <= 0) return;
+    return set(s => { s.slots[lv] = clamp((s.slots[lv]||0) + 1, 0, slot.max); });
+  }
+  if (t.dataset.spendPool)
+    return set(s => { s.res.loh = clamp((s.res.loh||0) + (+t.dataset.spendPool), 0, resMax("loh")); });
+
+  if (t.dataset.roll === "attack") {
+    const w = WEAPONS[S.calc.weapon] || WEAPONS[0];
+    const mod = (document.getElementById("atk-mod") || {}).value || "";
+    return set(s => {
+      s.calc.mod = mod;
+      const entry = rollAttack(w, s.calc, mod);
+      s.rolls = [entry, ...s.rolls.filter(r => r.lane)].slice(0, 12);
+    });
+  }
+  if (t.dataset.rollLane) return rollLane(t.dataset.rollLane);
+  if (t.hasAttribute("data-commit")) return commitRound();
+  if (t.hasAttribute("data-clear-plan")) return set(s => {
+    s.plan = {action:null, bonus:null, reaction:null, move:null};
+    s.laneMod = {action:"", bonus:"", reaction:"", move:""};
+    s.rolls = s.rolls.filter(r => !r.lane);
+  });
+  if (t.hasAttribute("data-clear-log")) return set(s => { s.rolls = []; });
+
+  if (t.dataset.load) return loadPlay(t.dataset.load);
+  if (t.dataset.clear) return set(s => { s.plan[t.dataset.clear] = null; });
+
+  const lane = t.parentElement?.dataset?.lane;
+  if (lane && t.dataset.pick != null) {
+    const v = t.dataset.pick;
+    return set(s => { s.plan[lane] = s.plan[lane] === v ? null : v; });
+  }
+});
+
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.dataset.lanemod)
+    return set(s => { s.laneMod[t.dataset.lanemod] = t.value; });
+  if (t.id === "atk-mod") return set(s => { s.calc.mod = t.value; });
+  if (t.dataset.tog) return set(s => { s.calc[t.dataset.tog] = t.checked; });
+  const map = {"c-ac":["ac",Number], "c-adv":["adv",String],
+               "c-sm":["smite",Number], "c-w":["weapon",Number]};
+  if (map[t.id]) {
+    const [k, cast] = map[t.id];
+    return set(s => { s.calc[k] = cast(t.value); });
+  }
+});
+
+document.getElementById("short-rest").onclick = () => set(s => {
+  for (const r of RESOURCES) if (r.reset === "Short Rest") s.res[r.id] = 0;
+});
+document.getElementById("long-rest").onclick = () => set(s => {
+  // Heal to the boosted maximum — Heroes' Feast runs 24 hours and survives a long
+  // rest. Durations vary, so the bonus itself is only ever cleared by hand.
+  s.hp = hpMax(); s.temp = 0; s.death = {ok:0,bad:0}; s.conditions = [];
+  for (const r of RESOURCES) s.res[r.id] = 0;
+  for (const k of Object.keys(s.slots)) s.slots[k] = 0;
+  s.hitDiceUsed = Math.max(0, s.hitDiceUsed - Math.floor(D.hitDice[0].total / 2));
+  s.plan = {action:null, bonus:null, reaction:null, move:null};
+});
+document.getElementById("reset").onclick = () => {
+  if (confirm("Reset every tracker back to the exported values?")) {
+    const tab = S.tab; S = blank(); S.tab = tab; save(); render();
+  }
+};
+
+render();
+startNotion();
+</script>
