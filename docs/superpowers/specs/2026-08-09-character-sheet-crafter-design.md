@@ -508,6 +508,13 @@ live. Service worker lifecycle testing costs more than it returns at this scale.
 
 ## Implementation sequence
 
+Two plans. The first delivers a working deployed sheet; the second turns it into a
+system. The split is deliberate — the authoring layer's shape gets sharper once a real
+sheet is building and deploying, and guessing at it beforehand is how tooling gets built
+for a workflow that turns out not to exist.
+
+### Plan 1 — Toki, decomposed and deployed
+
 1. Port the four test files; confirm green against the current monolith.
 2. Extract `core/*` one module at a time, tests green after each.
 3. Extract `ui/*`; delete the Notion block.
@@ -516,16 +523,22 @@ live. Service worker lifecycle testing costs more than it returns at this scale.
 6. Migrate Toki into `chars/<campaign>/toki/`; verify output matches the current sheet.
 7. Add service worker, manifest, `?reset`, and the update banner.
 8. Add the Pages Action; deploy Toki; walk the manual checklist on a phone.
-9. Add `sync_notion.py`, `new_character.py`, `validate.py`, `capabilities.py`,
-   `derived.lock.json`, and the campaign story cache.
+**Plan 1 is done when** Toki's sheet is installed on a phone, works in airplane mode,
+renders identically to the current artifact, and every test is green.
+
+### Plan 2 — The crafter
+
+9. Add `sync_notion.py` with `notion.config.json`, `new_character.py`, `validate.py`,
+   `capabilities.py`, `derived.lock.json`, and the campaign story cache.
 10. Write `.claude/skills/craft-character-sheet/` and the `DEVLOG.md` template; port
     `projects/toki_sheet/DEVLOG.md` into Toki's character folder.
 11. Craft the second character end-to-end through the skill, in a single run; fix what
     the process exposes.
 
-Steps 1–8 deliver a working deployed sheet. Steps 9–11 turn it into a system. Anything
-the skill cannot do smoothly for character two is a defect in the system, not in
-character two.
+**Plan 2 is done when** a second character goes from Notion record and D&D Beyond export
+to a deployed sheet in one skill-driven run. Anything the skill cannot do smoothly for
+character two is a defect in the system, not in character two — step 11 is the
+acceptance test for the whole project, not a victory lap.
 
 ## Open items
 
