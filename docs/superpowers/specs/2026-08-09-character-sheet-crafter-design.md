@@ -6,7 +6,12 @@ Status: Approved, ready for planning
 ## Summary
 
 Turn the one-off Toki Ironlung artifact into a system that crafts tuned digital
-character sheets for 5–6 characters across multiple campaigns and players.
+character sheets, table-ready and custom-tailored per character.
+
+**One crafter run produces one character's sheet.** The expected scale is 5–6 sheets
+across multiple campaigns, built one at a time as characters come up. The system has a
+single operator — Ian, working through a coding agent. The other players receive a URL;
+they never run any part of this.
 
 Two layers, deliberately separate:
 
@@ -22,6 +27,7 @@ D&D Beyond. It does not host the sheet.
 ## Goals
 
 - One SPA codebase, built once per character, each deploying to its own URL.
+- A single crafter run takes one character from export to deployed sheet.
 - Sheets work fully offline on a phone, installed to the home screen.
 - Each character is hand-tuned without forking shared code.
 - Adding a seventh character touches only that character's folder.
@@ -35,6 +41,9 @@ D&D Beyond. It does not host the sheet.
 - No runtime D&D Beyond calls in production.
 - No generic "render any character's export" mode. Sheets are hand-tuned.
 - No cross-character or party-wide runtime features in this version.
+- Not a product anyone else operates. No onboarding, no multi-user tooling, no
+  self-service. Players receive a finished URL and nothing more.
+- No batch crafting. Characters are built one at a time, deliberately.
 
 ## Decisions
 
@@ -173,8 +182,12 @@ npm run build -- <campaign>/<char>
   3. esbuild  app/main.js + chars/…/layout.js → dist/…/app.js (+ sourcemap)
   4. tools/build.py --char …           → dist/…/index.html + manifest.json + icons
   5. stamp BUILD_ID (git short sha)    → dist/…/sw.js
-npm run build:all
 ```
+
+Building one character is the normal operation. `npm run build:all` exists for one
+purpose: propagating a `src/core` or `src/ui` change out to sheets that are already
+deployed. The Pages Action runs it on push so a core fix reaches every live sheet
+without anyone rebuilding them by hand.
 
 `distill.py` and `build_fonts.py` are unchanged. `distill.py` gains one addition: it
 emits `summary.json` and the derived-value set (see Failure modes).
@@ -356,7 +369,8 @@ live. Service worker lifecycle testing costs more than it returns at this scale.
 8. Add the Pages Action; deploy Toki; walk the manual checklist on a phone.
 9. Add `sync_notion.py`, `new_character.py`, `validate.py`, `derived.lock.json`.
 10. Write `.claude/skills/craft-character-sheet/`.
-11. Craft the second character end-to-end through the skill; fix what the process exposes.
+11. Craft the second character end-to-end through the skill, in a single run; fix what
+    the process exposes.
 
 Steps 1–8 deliver a working deployed sheet. Steps 9–11 turn it into a system. Anything
 the skill cannot do smoothly for character two is a defect in the system, not in
