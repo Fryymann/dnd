@@ -56,7 +56,8 @@ D&D Beyond. It does not host the sheet.
 - No batch crafting. Characters are built one at a time, deliberately.
 - No templated mass production. A character that only differs by data is a failure of
   the process, not a success of the template.
-- No character reaching into core internals. Compose from core; never modify it.
+- No character importing unexported core internals or mutating core module state.
+  Subclassing declared base classes is the supported path; patching is not.
 
 ## Decisions
 
@@ -66,7 +67,7 @@ D&D Beyond. It does not host the sheet.
 | Character data | Baked at build time | Runtime file load and cloud sync — 5–6 hand-tuned sheets don't need either |
 | Build shape | One SPA codebase, N per-character builds | Single multi-character SPA — would ship every player's data inside every other player's install |
 | Code sharing | Shared pure core + per-character shell | Fork per character (drifts); one rigid template (caps tuning) |
-| Character extension limit | Compose only — import core, never modify it | Declared overrides (every seam becomes permanent API); full freedom (core could never be refactored safely) |
+| Character extension model | Pure functional core + class-based UI/behavior a character subclasses; rule variants injected as strategies | Classes all the way down (rule overrides diverge from the real game silently, pure testing gets heavier); hooks only (override surface capped by what core anticipated); unrestricted patching (core could never be refactored safely) |
 | Notion at runtime | Removed entirely | Snapshot and live-proxy — both add hassle once sheets are not just for one person |
 | Notion at authoring | `ntn` CLI, invoked by the agent | Agent MCP pull — every row would pass through model context on each refresh |
 | Toolchain | Python for data, esbuild for JS | Porting `distill.py` to JS — risks re-introducing the four documented D&D Beyond field bugs |
@@ -97,21 +98,51 @@ workshop notes ──[agent]──────────> plays.js, layout.js 
 | Layer | Knows | Must not know |
 |---|---|---|
 | `src/core` | dice math, HP rules, state persistence | any character, tab, or campaign |
-| `src/ui` | DOM rendering, panel chrome | game rules; it receives computed values |
+| `src/ui` | DOM rendering, base classes characters subclass | game rules; it receives computed values |
 | `src/app` | shell, routing, service worker lifecycle | any specific character |
 | `chars/*/layout.js` | that character's tabs, lanes, plays | how dice or storage are implemented |
-| `chars/*/modules/` | bespoke behavior for this character alone | any other character; core internals |
+| `chars/*/modules/` | bespoke behavior; subclasses of `ui` base classes | any other character; unexported core internals |
 | `chars/*/data.json` | distilled stats, spells, items | nothing — pure data |
 
 **Enforced rule: `core` is pure.** No DOM, no `localStorage`, no `Date.now`. Only `ui`
 touches the DOM. This is what keeps modules small and makes `core` testable without
 jsdom.
 
-**Enforced rule: characters compose, never modify.** A character's modules import core
-and `ui` and build new behavior from them. Core behaves identically for every character.
-A character that appears to need different *core* behavior is a signal that core needs a
-new option — added deliberately, for everyone, with tests. This is what allows core to be
-refactored without a player's sheet failing at a table.
+### Extension model
+
+Customization is the point of this project, so the extension seams are explicit and
+generous. They differ by layer, because rules and presentation fail differently.
+
+**Rules are pure functions with injected strategies.** Dice, damage, HP, and planner math
+behave identically for every character and stay trivially testable. Where a character
+genuinely needs a variant rule, it is passed in rather than inherited:
+
+```js
+roll(expr, { critRule: brutalCritical })
+```
+
+The variant is visible at the call site, testable on its own, and cannot silently change
+what any other character rolls.
+
+**UI and behavior are base classes a character subclasses.** `Panel`, `Tab`, `Tracker`,
+and `Lane` are classes with documented overridable methods. A character overrides what it
+needs and calls `super` for the rest:
+
+```js
+class OathPanel extends Panel {
+  render() { /* bespoke */ }
+  header() { return super.header() }
+}
+```
+
+**The one invariant: nothing reaches into internals.** A character may subclass a declared
+base class and override its documented methods. A character may not import something core
+never exported, nor mutate core module state. Subclassing is the supported path; patching
+is not. This is what allows core to be refactored without a player's sheet failing at a
+table, while leaving customization genuinely unbounded.
+
+Every overridable method is listed in the capability manifest, so an override is always a
+declared extension rather than a discovery.
 
 ## Repo layout
 
@@ -120,7 +151,8 @@ projects/sheets/
   registry.json  local cache of Notion campaign/character/player/party rows
   src/core/      dice.js hp.js state.js format.js spells.js weapons.js
                  attack.js damage.js planner.js roll-log.js
-  src/ui/        dom.js rail/ turn/ playbook/ sheet/ codex/
+  src/ui/        dom.js Panel.js Tab.js Tracker.js Lane.js
+                 rail/ turn/ playbook/ sheet/ codex/
   src/app/       main.js shell.js events.js sw.js
   src/CAPABILITIES.md   generated index of what core and ui provide
   campaigns/<campaign>/ campaign.json + story cache shared by that party
@@ -190,7 +222,8 @@ core learned a new trick. Adoption is a craft decision, recorded in that charact
 
 Crafting the fourth character requires knowing what core already provides, or the agent
 rebuilds what exists. `tools/capabilities.py` generates `src/CAPABILITIES.md` — a short
-index of every exported function in `core/` and `ui/` with its one-line purpose.
+index of every exported function in `core/`, every base class in `ui/` with its
+overridable methods, and every rule strategy point, each with a one-line purpose.
 
 The agent reads that manifest (~2K) instead of core's source. Correct and cheap: it is
 the difference between a few hundred tokens and tens of thousands, on every craft.
@@ -249,6 +282,10 @@ ui/turn/   index.js lane-card.js roll-card.js face-chips.js
 ui/sheet/  index.js ability-block.js skill-table.js
            action-list.js spell-list.js item-block.js
 ```
+
+Extraction also introduces what does not exist in the monolith: the `Panel`, `Tab`,
+`Tracker`, and `Lane` base classes. Today's render functions become the built-in
+subclasses of those bases, which is what gives a character something to extend.
 
 Deleting the Notion block removes roughly 200 lines of connector handling
 (`needs_reauth`, `server_not_connected`, live watches, freshness display) and replaces
@@ -382,13 +419,34 @@ character.
 | Emit `summary.json`, a ~3K agent-readable digest | `distill.py` |
 | Scaffold a character folder with ids prefilled from the registry | `new_character.py` |
 | Validate `layout.js` / `plays.js` ids against `data.json` | `validate.py` |
-| Enforce compose-only — no character module imports a core internal | `validate.py` |
+| Enforce the extension boundary — no character module imports an unexported core internal | `validate.py` |
 | Derived-value diff | `validate.py` |
 | Generate `src/CAPABILITIES.md` from core and ui exports | `capabilities.py` |
 | Bundle, build, stamp, deploy | esbuild, `build.py`, Action |
 
 The Notion integration token lives in the local environment only. It is never committed
 and never reaches the deployed page.
+
+### Notion is relational, not hierarchical
+
+Campaigns, parties, characters, and players are **database records**. Membership lives in
+relation properties on those records — a Notion URL or page path carries no structural
+information at all. Determining which campaign and party a character belongs to means
+querying the databases and reading properties, never parsing a path.
+
+`sync_notion.py` therefore needs a `notion.config.json` recording:
+
+- the database id for each of campaigns, parties, characters, players
+- the property name on each relation to follow (character→campaign, character→party,
+  character→player)
+
+Property names drift whenever someone renames a column in Notion. The sync **fails loudly
+on a missing or unresolvable property** rather than emitting a character with no campaign
+— a silently campaign-less character would deploy to the wrong path and get the wrong
+story cache.
+
+Folder and URL slugs derive from record names resolved at sync time. The Notion page id
+remains the durable key, so a rename in Notion updates the slug without breaking the link.
 
 ### Agent — interpretation only
 
@@ -432,7 +490,8 @@ after a refactor merely describe the new code.
 | `core/*` | node, no jsdom | Pure functions; `dice.js` takes an injected RNG |
 | `ui/*` | node + jsdom | Render to a fragment, assert structure |
 | `distill.py` | golden fixture | Fixture export → expected `data.json`, compared exactly |
-| `validate.py` | fixtures | A layout with a missing id must fail the build; a character importing a core internal must fail |
+| `validate.py` | fixtures | A layout with a missing id must fail; a character importing an unexported core internal must fail |
+| base classes | node + jsdom | Contract tests: a subclass overriding one method inherits the rest unchanged |
 | `chars/*/modules` | node (+ jsdom if it renders) | Owned and run with that character; a bespoke module ships with its own tests |
 | build | smoke | `build:all` produces expected files for every character |
 
@@ -470,7 +529,8 @@ character two.
 
 ## Open items
 
-- Campaign ids come from Notion; exact slugs are set when `sync_notion.py` first runs.
+- Notion database ids and relation property names for `notion.config.json` — read from
+  the live workspace when `sync_notion.py` is first written. Slugs follow from them.
 - Icon set per character — source and style undecided.
 - Whether `export.json` (716K–1.1M each) stays committed or is fetched on demand; it is
   committed for now so builds are reproducible offline.
