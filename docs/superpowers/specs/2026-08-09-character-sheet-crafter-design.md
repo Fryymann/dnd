@@ -13,6 +13,14 @@ across multiple campaigns, built one at a time as characters come up. The system
 single operator — Ian, working through a coding agent. The other players receive a URL;
 they never run any part of this.
 
+**Crafter, not builder.** A builder stamps out instances from a template. This treats
+each character as an ongoing sub-project: its own concept and development history, its
+own customized functionality and UI, inheriting core capability rather than being
+generated from a mould. Sheets are tailored to a specific *character and player*
+combination — two players running mechanically similar characters should get different
+sheets, because the tuning target is how that person plays, not just what the character
+can do.
+
 Two layers, deliberately separate:
 
 - **Runtime layer** — a self-contained offline PWA per character, deployed to GitHub
@@ -30,6 +38,8 @@ D&D Beyond. It does not host the sheet.
 - A single crafter run takes one character from export to deployed sheet.
 - Sheets work fully offline on a phone, installed to the home screen.
 - Each character is hand-tuned without forking shared code.
+- Each character is a long-lived sub-project with its own development history and its
+  own bespoke modules, not a build output.
 - Adding a seventh character touches only that character's folder.
 - Crafting a sheet is a repeatable agent procedure, not an ad-hoc prompt.
 - Minimum tokens per character: scripts wherever a script can do the job.
@@ -44,6 +54,9 @@ D&D Beyond. It does not host the sheet.
 - Not a product anyone else operates. No onboarding, no multi-user tooling, no
   self-service. Players receive a finished URL and nothing more.
 - No batch crafting. Characters are built one at a time, deliberately.
+- No templated mass production. A character that only differs by data is a failure of
+  the process, not a success of the template.
+- No character reaching into core internals. Compose from core; never modify it.
 
 ## Decisions
 
@@ -53,6 +66,7 @@ D&D Beyond. It does not host the sheet.
 | Character data | Baked at build time | Runtime file load and cloud sync — 5–6 hand-tuned sheets don't need either |
 | Build shape | One SPA codebase, N per-character builds | Single multi-character SPA — would ship every player's data inside every other player's install |
 | Code sharing | Shared pure core + per-character shell | Fork per character (drifts); one rigid template (caps tuning) |
+| Character extension limit | Compose only — import core, never modify it | Declared overrides (every seam becomes permanent API); full freedom (core could never be refactored safely) |
 | Notion at runtime | Removed entirely | Snapshot and live-proxy — both add hassle once sheets are not just for one person |
 | Notion at authoring | `ntn` CLI, invoked by the agent | Agent MCP pull — every row would pass through model context on each refresh |
 | Toolchain | Python for data, esbuild for JS | Porting `distill.py` to JS — risks re-introducing the four documented D&D Beyond field bugs |
@@ -86,11 +100,18 @@ workshop notes ──[agent]──────────> plays.js, layout.js 
 | `src/ui` | DOM rendering, panel chrome | game rules; it receives computed values |
 | `src/app` | shell, routing, service worker lifecycle | any specific character |
 | `chars/*/layout.js` | that character's tabs, lanes, plays | how dice or storage are implemented |
+| `chars/*/modules/` | bespoke behavior for this character alone | any other character; core internals |
 | `chars/*/data.json` | distilled stats, spells, items | nothing — pure data |
 
 **Enforced rule: `core` is pure.** No DOM, no `localStorage`, no `Date.now`. Only `ui`
 touches the DOM. This is what keeps modules small and makes `core` testable without
 jsdom.
+
+**Enforced rule: characters compose, never modify.** A character's modules import core
+and `ui` and build new behavior from them. Core behaves identically for every character.
+A character that appears to need different *core* behavior is a signal that core needs a
+new option — added deliberately, for everyone, with tests. This is what allows core to be
+refactored without a player's sheet failing at a table.
 
 ## Repo layout
 
@@ -101,19 +122,29 @@ projects/sheets/
                  attack.js damage.js planner.js roll-log.js
   src/ui/        dom.js rail/ turn/ playbook/ sheet/ codex/
   src/app/       main.js shell.js events.js sw.js
+  src/CAPABILITIES.md   generated index of what core and ui provide
+  campaigns/<campaign>/ campaign.json + story cache shared by that party
   chars/<campaign>/<char>/
                  character.json export.json data.json summary.json
                  derived.lock.json plays.js layout.js
+                 modules/    bespoke code owned by this character
+                 tests/      tests for those modules
+                 DEVLOG.md   this sheet's development history
   tools/         distill.py build_fonts.py build.py
-                 sync_notion.py new_character.py validate.py
+                 sync_notion.py new_character.py validate.py capabilities.py
   tests/         core/ ui/ golden/ fixtures/
   dist/          <campaign>/<char>/…
 .claude/skills/craft-character-sheet/SKILL.md
 ```
 
-Character *development* material is not duplicated here. `characters/active/<slug>/`
-already holds concept, workshop, and build notes per `characters/README.md`;
-`character.json` points at that slug.
+Two histories exist, with different subjects, and they are not merged:
+
+| Where | Subject | Lifecycle |
+|---|---|---|
+| `characters/active/<slug>/` | The **character** — concept, fantasy, build reasoning | Exists before any sheet, continues if no sheet is ever made |
+| `chars/<campaign>/<char>/DEVLOG.md` | The **sheet** — what was tuned, corrected, requested | Starts at first craft, appended whenever the sheet changes |
+
+`character.json` points at the workshop slug; concept material is never copied.
 
 ### `character.json`
 
@@ -130,6 +161,57 @@ already holds concept, workshop, and build notes per `characters/README.md`;
 
 The Notion page id is the durable link — it survives renames of both the character and
 the folder.
+
+## A character as a sub-project
+
+### Development log
+
+`projects/toki_sheet/DEVLOG.md` is the proven instance of this practice: 10.3K,
+newest-first, dated, and its opening entry is the record of four D&D Beyond fields that
+proved untrustworthy. That document is the reason those defects are known at all. It
+becomes the template — every character folder carries its own `DEVLOG.md`, appended
+whenever the sheet is tuned, corrected, or extended.
+
+It is written for a future agent as much as for a person: what was changed, why, and
+what was ruled out. A craft session on an existing character reads this before touching
+anything.
+
+### Inheritance is not automatic adoption
+
+`build:all` propagates a core **fix** to every deployed sheet — that is inheritance
+working, and it is why bugs are fixed once.
+
+A new core **capability** is different: it is opted into per character, in that
+character's `layout.js`. A sheet tuned three months ago must not grow a panel because
+core learned a new trick. Adoption is a craft decision, recorded in that character's
+`DEVLOG.md`.
+
+### Capability manifest
+
+Crafting the fourth character requires knowing what core already provides, or the agent
+rebuilds what exists. `tools/capabilities.py` generates `src/CAPABILITIES.md` — a short
+index of every exported function in `core/` and `ui/` with its one-line purpose.
+
+The agent reads that manifest (~2K) instead of core's source. Correct and cheap: it is
+the difference between a few hundred tokens and tens of thousands, on every craft.
+
+### Player as part of the target
+
+The tuning target is a character *and player* combination. Two players running
+mechanically similar characters should get different sheets. `character.json` records the
+player; their preferences — what they want visible, what they never use, how they
+actually play at the table — are captured in the workshop notes and are a required input
+to the craft procedure, not an optional nicety.
+
+### Shared campaign, separate perspective
+
+Party members in one campaign draw on the same Notion story material but surface
+different slices of it. Campaign material is therefore cached once per campaign in
+`campaigns/<campaign>/`, not per character. The agent interprets a per-character slice
+from that shared cache.
+
+Two benefits: every sheet in a party states the same facts, and the campaign material is
+fetched once rather than once per party member.
 
 ## Module decomposition
 
@@ -300,7 +382,9 @@ character.
 | Emit `summary.json`, a ~3K agent-readable digest | `distill.py` |
 | Scaffold a character folder with ids prefilled from the registry | `new_character.py` |
 | Validate `layout.js` / `plays.js` ids against `data.json` | `validate.py` |
+| Enforce compose-only — no character module imports a core internal | `validate.py` |
 | Derived-value diff | `validate.py` |
+| Generate `src/CAPABILITIES.md` from core and ui exports | `capabilities.py` |
 | Bundle, build, stamp, deploy | esbuild, `build.py`, Action |
 
 The Notion integration token lives in the local environment only. It is never committed
@@ -312,6 +396,8 @@ and never reaches the deployed page.
 |---|---|
 | `characters/active/<slug>/` notes → `plays.js` | Turning stated fantasy and playstyle into concrete plays is design judgment |
 | Tune `layout.js` — lanes, tabs, thresholds | Bespoke per character, which is the point |
+| Write `modules/` — functionality this character alone needs | Novel behavior, composed from core |
+| Append `DEVLOG.md` with what changed and what was ruled out | Judgment about what a future session needs to know |
 | Select campaign context from Notion transcripts for the Codex tab | Requires reading and choosing from prose |
 | Adjudicate export oddities against the real sheet | The four known bad fields were caught by judgment |
 
@@ -321,7 +407,10 @@ and never reaches the deployed page.
    load repeatedly. It reads `summary.json` (~3K).
 2. **Script-verified output.** The agent writes `plays.js`; `validate.py` proves every
    referenced id exists. No second pass spent re-checking its own work.
-3. **The procedure is a skill.** `.claude/skills/craft-character-sheet/` holds the steps,
+3. **Core is read as a manifest, not as source.** `src/CAPABILITIES.md` (~2K) replaces
+   reading `core/` and `ui/` to find out what already exists.
+4. **Campaign material is fetched once per campaign**, not once per party member.
+5. **The procedure is a skill.** `.claude/skills/craft-character-sheet/` holds the steps,
    templates, and validation gates. Committed to this repo so it follows the checkout
    between laptop and desktop, and versioned alongside the tools it drives.
 
@@ -343,7 +432,8 @@ after a refactor merely describe the new code.
 | `core/*` | node, no jsdom | Pure functions; `dice.js` takes an injected RNG |
 | `ui/*` | node + jsdom | Render to a fragment, assert structure |
 | `distill.py` | golden fixture | Fixture export → expected `data.json`, compared exactly |
-| `validate.py` | fixtures | A layout with a missing id must fail the build |
+| `validate.py` | fixtures | A layout with a missing id must fail the build; a character importing a core internal must fail |
+| `chars/*/modules` | node (+ jsdom if it renders) | Owned and run with that character; a bespoke module ships with its own tests |
 | build | smoke | `build:all` produces expected files for every character |
 
 Two tests exist specifically for identified hazards:
@@ -367,8 +457,10 @@ live. Service worker lifecycle testing costs more than it returns at this scale.
 6. Migrate Toki into `chars/<campaign>/toki/`; verify output matches the current sheet.
 7. Add service worker, manifest, `?reset`, and the update banner.
 8. Add the Pages Action; deploy Toki; walk the manual checklist on a phone.
-9. Add `sync_notion.py`, `new_character.py`, `validate.py`, `derived.lock.json`.
-10. Write `.claude/skills/craft-character-sheet/`.
+9. Add `sync_notion.py`, `new_character.py`, `validate.py`, `capabilities.py`,
+   `derived.lock.json`, and the campaign story cache.
+10. Write `.claude/skills/craft-character-sheet/` and the `DEVLOG.md` template; port
+    `projects/toki_sheet/DEVLOG.md` into Toki's character folder.
 11. Craft the second character end-to-end through the skill, in a single run; fix what
     the process exposes.
 
