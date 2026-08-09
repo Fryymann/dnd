@@ -238,13 +238,23 @@ to the craft procedure, not an optional nicety.
 
 ### Shared campaign, separate perspective
 
-Party members in one campaign draw on the same Notion story material but surface
-different slices of it. Campaign material is therefore cached once per campaign in
-`campaigns/<campaign>/`, not per character. The agent interprets a per-character slice
-from that shared cache.
+Party members draw on the same Notion story material but surface different slices of it.
+Campaign material is therefore cached once and shared, never fetched per character.
 
-Two benefits: every sheet in a party states the same facts, and the campaign material is
-fetched once rather than once per party member.
+The cache has **two layers**, because a campaign can hold more than one party. The
+DragonLance campaign holds two — Dragonlance 1 (Toki's, active) and the Misfit Resistance
+(concluded) — with shared world canon but separate session logs:
+
+```
+campaigns/<campaign>/canon/          world-level facts, true for every party
+campaigns/<campaign>/<party>/logs/   session logs for that party only
+```
+
+A character reads its campaign's canon plus its own party's logs. Keying the whole cache
+on campaign would feed one party's sessions into the other party's sheets.
+
+Two benefits: every sheet in a party states the same facts, and the material is fetched
+once rather than once per member.
 
 ## Module decomposition
 
@@ -376,8 +386,8 @@ automatic: each build writes AC, HP max, save DCs, attack bonuses, and slot coun
 `derived.lock.json`, and the next build diffs against it:
 
 ```
-toki: AC 21 → 19        (!)
-toki: hpMax 128 → 134
+toki: AC <previous> → <current>        (!)
+toki: hpMax <previous> → <current>
 ```
 
 The build does **not** fail — leveling legitimately changes these. It puts the numbers in
@@ -542,8 +552,12 @@ acceptance test for the whole project, not a victory lap.
 
 ## Open items
 
-- Notion database ids and relation property names for `notion.config.json` — read from
-  the live workspace when `sync_notion.py` is first written. Slugs follow from them.
+- `notion.config.json` is partly resolved. Known from Toki's record (2026-08-09):
+  characters data source `collection://2e4fe8ec-ae8f-805f-b4f6-000b1148ad99`; relation
+  properties `🛡️ Campaigns`, `Player Party`, `D&D Player`; also present and useful —
+  `D&D Session Logs`, `Story Arcs`, `DnD Beyond`. Property keys contain emoji and
+  spaces, so the config must carry them verbatim rather than normalising. The parties and
+  campaigns data source ids are still to be read when `sync_notion.py` is written.
 - Icon set per character — source and style undecided.
 - Whether `export.json` (716K–1.1M each) stays committed or is fetched on demand; it is
   committed for now so builds are reproducible offline.

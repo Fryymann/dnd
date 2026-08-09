@@ -14,11 +14,26 @@
 
 ---
 
-## Required input
+## Resolved identifiers
 
-This plan needs exactly one value it cannot derive: **Toki's campaign slug** (lowercase, hyphenated). It sets the folder path, the deploy URL, the service worker scope, and the storage key. In Plan 2 the Notion sync becomes authoritative for it; here it is entered by hand once, in Task 10.
+Read from the Notion record on 2026-08-09, not inferred from any URL path — campaign
+membership is a relation property on the character record.
 
-Referred to below as `<campaign>`. Substitute the real slug everywhere it appears.
+| Field | Value | Source |
+|---|---|---|
+| Campaign | `dragonlance` | `🛡️ Campaigns` → "Campaign — DragonLance" |
+| Party | Dragonlance 1 (active) | `Player Party` → `2e4fe8ec-ae8f-803f-8538-ed9ba6149f68` |
+| Character record | `18bfe8ec-ae8f-80b0-a027-f3d1e05bd66f` | D&D Characters data source |
+| D&D Beyond id | `123798538` | `DnD Beyond` property |
+| Characters data source | `collection://2e4fe8ec-ae8f-805f-b4f6-000b1148ad99` | parent of the record |
+
+Deploy path is therefore `/dnd/dragonlance/toki/`, storage key
+`sheet:v1:dragonlance:toki`.
+
+**Party is recorded but not in the path.** The DragonLance campaign has two parties —
+Dragonlance 1 (Toki's, active) and the Misfit Resistance (concluded). Party affects which
+session logs a character's story cache draws from, which is a Plan 2 concern. It does not
+affect Plan 1's paths.
 
 ---
 
@@ -68,7 +83,7 @@ Referred to below as `<campaign>`. Substitute the real slug everywhere it appear
 | `projects/sheets/src/app/events.js` | Global event delegation |
 | `projects/sheets/src/app/sw.js` | Service worker source |
 | `projects/sheets/src/app/update-banner.js` | "New version — reload" UI |
-| `projects/sheets/chars/<campaign>/toki/` | Toki's data, plays, layout, DEVLOG |
+| `projects/sheets/chars/dragonlance/toki/` | Toki's data, plays, layout, DEVLOG |
 | `projects/sheets/tools/build.py` | Per-character page assembly |
 | `projects/sheets/tools/build_fonts.py` | Emits real `.woff2` (no base64) |
 | `.github/workflows/pages.yml` | Build all characters, deploy |
@@ -1295,9 +1310,9 @@ git commit -m "refactor: extract playbook, sheet and codex tabs; drop the Notion
 ## Task 10: Toki's character folder
 
 **Files:**
-- Create: `projects/sheets/chars/<campaign>/toki/character.json`, `plays.js`, `layout.js`
-- Move: `toki.data.json` → `chars/<campaign>/toki/data.json`
-- Move: `DEVLOG.md` → `chars/<campaign>/toki/DEVLOG.md`
+- Create: `projects/sheets/chars/dragonlance/toki/character.json`, `plays.js`, `layout.js`
+- Move: `toki.data.json` → `chars/dragonlance/toki/data.json`
+- Move: `DEVLOG.md` → `chars/dragonlance/toki/DEVLOG.md`
 
 - [ ] **Step 1: Create the folder using the real campaign slug**
 
@@ -1305,31 +1320,31 @@ Substitute the campaign slug from the Required Input section:
 
 ```bash
 cd /home/ideans/data/projects/dnd/projects/sheets
-mkdir -p chars/<campaign>/toki
-git mv toki.data.json chars/<campaign>/toki/data.json
-git mv DEVLOG.md chars/<campaign>/toki/DEVLOG.md
+mkdir -p chars/dragonlance/toki
+git mv toki.data.json chars/dragonlance/toki/data.json
+git mv DEVLOG.md chars/dragonlance/toki/DEVLOG.md
 ```
 
 - [ ] **Step 2: Write character.json**
 
-Create `chars/<campaign>/toki/character.json`:
+Create `chars/dragonlance/toki/character.json`:
 
 ```json
 {
   "id": "toki",
   "name": "Toki Ironlung",
   "player": "Ian",
-  "campaign": "<campaign>",
-  "notionPageId": "",
+  "campaign": "dragonlance",
+  "notionPageId": "18bfe8ec-ae8f-80b0-a027-f3d1e05bd66f",
   "workshop": "characters/active/toki-ironlung"
 }
 ```
 
-`notionPageId` is filled by the Notion sync in Plan 2; it is empty here because nothing in Plan 1 reads it.
+`notionPageId` is Toki's D&D Characters record. Nothing in Plan 1 reads it; Plan 2's sync treats it as the durable key.
 
 - [ ] **Step 3: Extract the playbook data**
 
-Move the A–G play definitions from `sheet.html:641-783` into `chars/<campaign>/toki/plays.js` as a single exported array:
+Move the A–G play definitions from `sheet.html:641-783` into `chars/dragonlance/toki/plays.js` as a single exported array:
 
 ```js
 "use strict";
@@ -1338,7 +1353,7 @@ module.exports = { PLAYS: [ /* moved verbatim from sheet.html:641-783 */ ] };
 
 - [ ] **Step 4: Write layout.js**
 
-Create `chars/<campaign>/toki/layout.js`. It declares Toki's tab set, his resource list (moved from `sheet.html:790-801`), and his lanes:
+Create `chars/dragonlance/toki/layout.js`. It declares Toki's tab set, his resource list (moved from `sheet.html:790-801`), and his lanes:
 
 ```js
 "use strict";
@@ -1426,12 +1441,12 @@ git mv distill.py tools/distill.py
 
 - [ ] **Step 3: Rewrite tools/build.py for per-character output**
 
-`tools/build.py --char <campaign>/<char>` must:
+`tools/build.py --char dragonlance/<char>` must:
 
-1. Run esbuild, bundling `src/app/main.js` with that character's `data.json`, `layout.js`, and `character.json` aliased in, to `dist/<campaign>/<char>/app.js`.
-2. Emit `dist/<campaign>/<char>/index.html` — the template shell with `<link>` to the shared fonts and `<script src="app.js">`. No inline script.
-3. Emit `manifest.json` with `name` from `character.json`, and `start_url` and `scope` both `/dnd/<campaign>/<char>/`.
-4. Copy `sw.js` with `BUILD_ID` replaced by `git rev-parse --short HEAD` and the cache name set to `sheet-<campaign>-<char>-<BUILD_ID>`.
+1. Run esbuild, bundling `src/app/main.js` with that character's `data.json`, `layout.js`, and `character.json` aliased in, to `dist/dragonlance/<char>/app.js`.
+2. Emit `dist/dragonlance/<char>/index.html` — the template shell with `<link>` to the shared fonts and `<script src="app.js">`. No inline script.
+3. Emit `manifest.json` with `name` from `character.json`, and `start_url` and `scope` both `/dnd/dragonlance/<char>/`.
+4. Copy `sw.js` with `BUILD_ID` replaced by `git rev-parse --short HEAD` and the cache name set to `sheet-dragonlance-<char>-<BUILD_ID>`.
 
 - [ ] **Step 4: Change build_fonts.py to emit real woff2**
 
@@ -1453,8 +1468,8 @@ git mv distill.py tools/distill.py
 - [ ] **Step 6: Build Toki and confirm the output exists**
 
 ```bash
-cd projects/sheets && npm run build -- <campaign>/toki
-ls dist/<campaign>/toki/
+cd projects/sheets && npm run build -- dragonlance/toki
+ls dist/dragonlance/toki/
 ```
 
 Expected: `index.html`, `app.js`, `sw.js`, `manifest.json`.
@@ -1492,7 +1507,7 @@ if (!existsSync(dist)) {
 with:
 
 ```js
-const CHAR = process.env.PARITY_CHAR || "<campaign>/toki";
+const CHAR = process.env.PARITY_CHAR || "dragonlance/toki";
 const dist = path.join(__dirname, "..", "dist", CHAR, "index.html");
 if (!existsSync(dist)) {
   console.error(`${dist} not found — run \`npm run build -- ${CHAR}\` first.`);
@@ -1536,7 +1551,7 @@ Also delete the `window.claude` stub (`dice.test.js:14-15`) — nothing reads it
 - [ ] **Step 5: Run the parity suite**
 
 ```bash
-cd projects/sheets && npm run build -- <campaign>/toki && npm run test:parity
+cd projects/sheets && npm run build -- dragonlance/toki && npm run test:parity
 ```
 
 Expected: 4 suites pass. `shell` 57 checks, `dice` 25, `hp` 25, `content` ~44.
@@ -1707,7 +1722,7 @@ if ("serviceWorker" in navigator) {
 - [ ] **Step 7: Rebuild and confirm the suites still pass**
 
 ```bash
-cd projects/sheets && npm run build -- <campaign>/toki && npm test
+cd projects/sheets && npm run build -- dragonlance/toki && npm test
 ```
 
 Expected: all unit and parity suites pass.
@@ -1784,7 +1799,7 @@ Create `projects/sheets/CHECKLIST.md`:
 Walked on a real phone before a character goes live. Service worker lifecycle
 is not unit tested — this is the coverage.
 
-- [ ] Page loads at `https://fryymann.github.io/dnd/<campaign>/<char>/`
+- [ ] Page loads at `https://fryymann.github.io/dnd/dragonlance/<char>/`
 - [ ] "Add to home screen" installs it with the character's own name and icon
 - [ ] Launched from the home screen it opens without browser chrome
 - [ ] Airplane mode: relaunch works fully offline
