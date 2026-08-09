@@ -10,7 +10,12 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-09-character-sheet-crafter-design.md`
 
-**Plan 2** (the crafter: Notion sync, validators, capability manifest, skill) is written after this plan completes, per the spec's split.
+**Plan 2** (the crafter, now verb-first: global verb library, formula evaluator, bindings,
+Notion sync, validators, skill) is written after this plan completes.
+
+**Scope change 2026-08-09:** the Turn tab is *not* ported. The verb layer replaces it —
+see `docs/superpowers/specs/2026-08-09-verb-layer-design.md`. Task 6 is removed and Task 9
+Step 3 is a deliberate no-op. The `dice` parity suite parks with it.
 
 ---
 
@@ -66,7 +71,6 @@ affect Plan 1's paths.
 | `projects/sheets/src/core/weapons.js` | `weapons` — derives weapon rows from data |
 | `projects/sheets/src/core/damage.js` | `outcome` — damage math |
 | `projects/sheets/src/core/attack.js` | `rollAttack` — composes dice + damage |
-| `projects/sheets/src/core/planner.js` | `laneOptions`, `resLeftFor`, `forecast` |
 | `projects/sheets/src/core/state.js` | `createStore` — namespaced persistence |
 | `projects/sheets/src/ui/dom.js` | `el` — the only DOM primitive |
 | `projects/sheets/src/ui/Panel.js` | `Panel` base class |
@@ -74,7 +78,6 @@ affect Plan 1's paths.
 | `projects/sheets/src/ui/Tracker.js` | `Tracker` base class |
 | `projects/sheets/src/ui/Lane.js` | `Lane` base class |
 | `projects/sheets/src/ui/rail/` | Left rail, 4 files |
-| `projects/sheets/src/ui/turn/` | Turn planner, 7 files |
 | `projects/sheets/src/ui/playbook/` | Playbook, 3 files |
 | `projects/sheets/src/ui/sheet/` | Sheet tab, 6 files |
 | `projects/sheets/src/ui/codex/` | Codex tab, 2 files (no Notion) |
@@ -797,90 +800,13 @@ git commit -m "feat: extract core/weapons, core/damage and core/attack"
 
 ---
 
-## Task 6: core/planner.js
+## Task 6: REMOVED — superseded by the verb layer
 
-**Files:**
-- Create: `projects/sheets/src/core/planner.js`
-- Create: `projects/sheets/tests/core/planner.test.js`
-- Reference: `sheet.html:993-1054`
+`core/planner.js` (`laneOptions`, `resLeftFor`, `forecast`, `sheet.html:993-1054`) served
+the Turn tab. The verb layer replaces that tab, and `core/verbs.js` plus `core/plays.js`
+supersede these functions — see `docs/superpowers/specs/2026-08-09-verb-layer-design.md`.
 
-- [ ] **Step 1: Read the source range**
-
-```bash
-sed -n '993,1054p' projects/sheets/sheet.html
-```
-
-Three functions: `laneOptions(lane)`, `resLeftFor(a)`, `forecast()`. Note every global read — `DATA`, `S`, `RESOURCES`.
-
-- [ ] **Step 2: Write the failing test**
-
-Create `projects/sheets/tests/core/planner.test.js`. Set the fixtures from what Step 1 showed:
-
-```js
-const { test } = require("node:test");
-const assert = require("node:assert");
-const { laneOptions, resLeftFor, forecast } = require("../../src/core/planner.js");
-
-const DATA = require("../fixtures/toki.data.json");
-const RESOURCES = [
-  { id: "cd", label: "Channel Divinity", max: 3, reset: "Long Rest" },
-  { id: "smite", label: "Free Smite", max: 1, reset: "Long Rest" },
-];
-const STATE = { res: { cd: 2, smite: 1 }, slots: {}, laneMod: {}, plan: {} };
-
-test("laneOptions returns the actions available in a lane", () => {
-  const opts = laneOptions("action", { data: DATA, state: STATE });
-  assert.ok(Array.isArray(opts));
-});
-
-test("resLeftFor reports the remaining uses of a resource", () => {
-  assert.equal(resLeftFor({ res: "cd" }, { state: STATE, resources: RESOURCES }), 2);
-});
-
-test("resLeftFor reports null for an action that costs no resource", () => {
-  assert.equal(resLeftFor({}, { state: STATE, resources: RESOURCES }), null);
-});
-
-test("forecast reports one entry per tracked resource", () => {
-  const f = forecast({ data: DATA, state: STATE, resources: RESOURCES });
-  assert.equal(f.length, RESOURCES.length);
-});
-```
-
-- [ ] **Step 3: Run it and confirm it fails**
-
-```bash
-cd projects/sheets && node --test tests/core/planner.test.js
-```
-
-Expected: FAIL — module not found.
-
-- [ ] **Step 4: Write core/planner.js**
-
-Move the three functions from `sheet.html:1023-1054` plus the option tables at `993-1022`. Signatures:
-
-```js
-laneOptions(laneId, { data, state })
-resLeftFor(action, { state, resources })
-forecast({ data, state, resources })
-```
-
-Adjust the Step 2 fixtures to whatever these actually return; the assertions describe shape, not invented values.
-
-- [ ] **Step 5: Run it and confirm it passes**
-
-```bash
-cd projects/sheets && node --test tests/core/planner.test.js
-```
-
-Expected: PASS, 4 tests.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add projects/sheets/src/core/planner.js projects/sheets/tests/core/planner.test.js
-git commit -m "feat: extract core/planner"
-```
+Do not extract it. Task numbering is left intact so later task references stay valid.
 
 ---
 
@@ -1275,16 +1201,13 @@ git add projects/sheets/src/ui/rail/
 git commit -m "refactor: extract the rail into ui/rail"
 ```
 
-- [ ] **Step 3: Port the turn planner**
+- [ ] **Step 3: Do NOT port the turn planner**
 
-Move `sheet.html:1432-1764` into `src/ui/turn/`: `index.js`, `lane-card.js`, `roll-card.js`, `face-chips.js`, `commit-bar.js`, `cost-line.js`, `forecast-panel.js`. The helpers map one-to-one: `faceChips` (1634), `rollCard` (1640), `poleStrike` (1682), `rollableExpr` (1691), `rollLane` (1705), `commitRound` (1730), `costLine` (1746).
+`sheet.html:1432-1764` is deliberately left behind. The verb view replaces it in a later
+plan. Porting it would mean carrying ~330 lines that are already scheduled for retirement.
 
-- [ ] **Step 4: Commit the turn planner**
-
-```bash
-git add projects/sheets/src/ui/turn/
-git commit -m "refactor: extract the turn planner into ui/turn"
-```
+Leave `sheet.html` intact until Task 15 — the remaining suites still load the built page,
+not this source.
 
 - [ ] **Step 5: Port the playbook**
 
@@ -1490,7 +1413,8 @@ The proof that the decomposition changed nothing a player can see.
 **Files:**
 - Modify: `projects/sheets/tests/run.js`
 - Modify: `projects/sheets/tests/content.test.js`
-- Modify: `projects/sheets/tests/shell.test.js`, `dice.test.js`, `hp.test.js`
+- Modify: `projects/sheets/tests/shell.test.js`, `hp.test.js`
+- Park: `projects/sheets/tests/dice.test.js`
 
 - [ ] **Step 1: Point the parity runner at the new dist**
 
@@ -1521,9 +1445,12 @@ In `tests/run.js`, delete the `MODES` array (lines 14-17) and replace the `runs`
 
 ```js
 const runs = [
-  ["shell.test.js", []], ["dice.test.js", []], ["hp.test.js", []],
-  ["content.test.js", []],
+  ["shell.test.js", []], ["hp.test.js", []], ["content.test.js", []],
 ];
+// dice.test.js is parked: it drives the roller entirely through the Turn UI
+// (27 references), which this plan no longer builds. core/dice.js is covered
+// directly by tests/core/dice.test.js with an injected RNG — stronger coverage
+// than driving dice through a rendered page. Restore it against the verb view.
 ```
 
 - [ ] **Step 3: Strip Notion assertions from content.test.js**
@@ -1532,7 +1459,7 @@ Remove every check that asserts on connector state, panel freshness, or the arc 
 
 - [ ] **Step 4: Load the external bundle in the jsdom harness**
 
-Each suite currently evals inline `<script>` tags (`dice.test.js:17-20`). The built page has none. In all four suites, add `path` to the requires at the top:
+Each suite currently evals inline `<script>` tags (`dice.test.js:17-20` shows the pattern). The built page has none. In all three live suites, add `path` to the requires at the top:
 
 ```js
 const path = require("path");
@@ -1554,7 +1481,11 @@ Also delete the `window.claude` stub (`dice.test.js:14-15`) — nothing reads it
 cd projects/sheets && npm run build -- dragonlance/toki && npm run test:parity
 ```
 
-Expected: 4 suites pass. `shell` 57 checks, `dice` 25, `hp` 25, `content` ~44.
+Expected: 3 suites pass. `shell` ~53 checks, `hp` 25, `content` ~39.
+
+The counts are lower than the baseline because `shell` holds 4 turn-planner references and
+`content` holds 5. Remove exactly those checks and no others. Every remaining check must
+pass unmodified — that is what makes this a parity harness rather than a rewrite.
 
 **If any check fails, the port changed behavior.** Fix the module, not the test. A test edited to match new behavior proves nothing — that is the whole point of keeping these suites.
 
@@ -1564,7 +1495,7 @@ Expected: 4 suites pass. `shell` 57 checks, `dice` 25, `hp` 25, `content` ~44.
 cd projects/sheets && npm test
 ```
 
-Expected: unit tests pass, then all 4 parity suites pass.
+Expected: unit tests pass, then all 3 parity suites pass.
 
 - [ ] **Step 7: Commit**
 
@@ -1872,7 +1803,7 @@ built page."
 
 ## Done when
 
-- `npm test` green: unit suites plus 4 parity suites (~151 checks).
+- `npm test` green: unit suites plus 3 parity suites (~117 checks).
 - Toki's sheet installed on a phone, working in airplane mode.
 - Every item in `CHECKLIST.md` walked.
 - `sheet.html` gone; no file in `src/core/` imports the DOM or `localStorage`.
