@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "D&D Toolkit",
+  "version": "0.1.0",
+  "description": "Tools for D&D Beyond. Export a character sheet as complete JSON.",
+  "permissions": ["activeTab", "downloads"],
+  "host_permissions": [
+    "https://www.dndbeyond.com/*",
+    "https://auth-service.dndbeyond.com/*",
+    "https://character-service.dndbeyond.com/*"
+  ],
+  "action": {
+    "default_title": "D&D Toolkit",
+    "default_popup": "src/popup/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.dndbeyond.com/characters/*"],
+      "js": ["src/modules/character-export/content.js"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/core/*.js",
+        "src/api/*.js",
+        "src/modules/character-export/*.js"
+      ],
+      "matches": ["https://www.dndbeyond.com/*"]
+    }
+  ]
+}

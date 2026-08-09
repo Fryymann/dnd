@@ -1,0 +1,14 @@
+{
+  "name": "dnd-toolkit-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Chrome extension with D&D Beyond tools. First module: character JSON export.",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}
