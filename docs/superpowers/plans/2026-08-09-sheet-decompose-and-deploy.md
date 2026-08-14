@@ -1809,3 +1809,50 @@ built page."
 - `sheet.html` gone; no file in `src/core/` imports the DOM or `localStorage`.
 
 Plan 2 — Notion sync, `validate.py`, `capabilities.py`, the campaign story cache, and `.claude/skills/craft-character-sheet/` — is written once this plan lands.
+
+---
+
+# Amendment — 2026-08-13: dual-channel delivery
+
+The build target changes. The decompose does not — Tasks 1–10 and 12 stand exactly as
+written, and they are the bulk of the work.
+
+**Every character now emits two artifacts from one source build:**
+
+| Channel | Artifact | Why |
+|---|---|---|
+| GitHub Pages | `index.html` + `app.js` + `sw.js` + `manifest.json` + external `woff2` | Daily use. Reliable storage, refresh-to-update, a link players can re-download from. |
+| Standalone file | one inlined `<char>.html` — CSS, JS, data, fonts all embedded | Offline, portable, AirDrop-able, opens on any device, survives the repo. |
+
+### Constraints the standalone file imposes
+
+1. **No ESM.** `<script type="module">` fails over `file://` — module scripts are
+   CORS-checked and `file://` origins are opaque. The standalone bundle is a classic
+   IIFE. Source keeps `import`/`export`; the bundler flattens them.
+2. **No `fetch()`.** Local reads fail the same way. All data inlines — already true, the
+   plan bakes character data at build.
+3. **No service worker.** `file://` is not a secure context, so registration fails. The
+   file *is* the offline copy; there is nothing to cache and no update to announce.
+4. **`localStorage` is the weak point.** Chrome (desktop and Android) and Firefox allow
+   it on `file://`; iOS Safari opening a local file from the Files app is the case not to
+   bet on without testing. Browsers that do allow it often bucket every `file://` page
+   into one shared origin — which makes Task 7's namespaced key load-bearing rather than
+   merely tidy. **Unverified: run a probe page on a real phone, iPad and laptop before a
+   player depends on the file channel.**
+
+### Task deltas
+
+| Task | Change |
+|---|---|
+| 1–10, 12 | Unchanged. |
+| 7 (state) | Unchanged, and now load-bearing. **Add Export / Import JSON** — dump tracked state to a file or clipboard, read it back. This is the only path that survives a hostile `file://` storage policy, and the only way state moves between channels: the Pages origin and the `file://` origin are separate buckets and will never sync. |
+| 11 (build) | Emits both artifacts. Standalone bundle format is IIFE. |
+| 11 (font step) | Conditional rather than reversed. Pages keeps external `woff2` as written; the standalone build base64-inlines faces (~25% larger). Both paths from one `build_fonts.py`. |
+| 13 (SW, manifest, update banner) | Pages channel only. The `?reset` hatch stays on both — still the recovery path when storage goes bad. |
+| 14 (Pages deploy) | Unchanged, plus: publish the standalone `.html` as a downloadable artifact alongside the site. |
+
+### Done-when additions
+
+- Both artifacts build from one `npm run build`.
+- The standalone file opens and tracks state from `file://` on a real phone.
+- Export from one channel imports cleanly into the other.

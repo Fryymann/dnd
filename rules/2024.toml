@@ -1,0 +1,101 @@
+# D&D 2024 rules constants — the variable namespace contract.
+#
+# Verb definitions in Notion carry FORMULAS ("8 + SPELLCASTING_MOD + PROFICIENCY_BONUS").
+# This file says what those variable names mean. The build evaluates both and bakes the
+# result into the sheet; nothing here reaches the browser.
+#
+# Editing this file changes every character's numbers on the next build. A formula that
+# references a variable not declared here FAILS THE BUILD by name (gate 2).
+#
+# STATUS: seed, unverified. Values below need a pass against the 2024 PHB before any
+# sheet ships from them.
+
+[meta]
+edition = "2024"
+verified = false
+
+# ---------------------------------------------------------------------------
+# Level tables. Indexed by the variable named in `index`, 1-based.
+# ---------------------------------------------------------------------------
+
+[tables.proficiency_by_level]
+index = "CHARACTER_LEVEL"
+values = [2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6]
+
+# ---------------------------------------------------------------------------
+# Step progressions. Base value, plus one for each threshold reached.
+# ---------------------------------------------------------------------------
+
+[steps.cantrip_dice]
+index = "CHARACTER_LEVEL"
+base = 1
+thresholds = [5, 11, 17]
+
+# ---------------------------------------------------------------------------
+# Variables. Exactly one of `table`, `steps`, `formula`, or `from`.
+#   table   — look up a level table above
+#   steps   — a step progression above
+#   formula — arithmetic over other variables; ceil/floor/min/max allowed
+#   from    — read off the character export, not computed here
+# ---------------------------------------------------------------------------
+
+[variables.CHARACTER_LEVEL]
+description = "Total levels across all classes."
+from = "character.totalLevel"
+
+[variables.PROFICIENCY_BONUS]
+description = "Proficiency bonus at the character's total level."
+table = "proficiency_by_level"
+
+[variables.CANTRIP_DICE]
+description = """
+Damage dice a cantrip rolls. One die, plus one more at levels 5, 11 and 17.
+Uniform across every damaging cantrip, so definitions write "CANTRIP_DICE d10"
+rather than restating the progression per spell."""
+steps = "cantrip_dice"
+
+[variables.SNEAK_ATTACK_DICE]
+description = "d6s of Sneak Attack: half the rogue level, rounded up."
+formula = "ceil(CLASS_LEVEL.rogue / 2)"
+
+[variables.SPELL_ATTACK]
+description = "Spell attack bonus."
+formula = "SPELLCASTING_MOD + PROFICIENCY_BONUS"
+
+[variables.SPELL_SAVE_DC]
+description = "Standard spell save DC. Verbs may still spell this out longhand."
+formula = "8 + SPELLCASTING_MOD + PROFICIENCY_BONUS"
+
+[variables.SPELLCASTING_MOD]
+description = "Modifier for the class doing the casting. Multiclass casters resolve per class."
+from = "character.spellcastingAbilityMod"
+
+[variables.STR_MOD]
+from = "character.abilities.str.mod"
+[variables.DEX_MOD]
+from = "character.abilities.dex.mod"
+[variables.CON_MOD]
+from = "character.abilities.con.mod"
+[variables.INT_MOD]
+from = "character.abilities.int.mod"
+[variables.WIS_MOD]
+from = "character.abilities.wis.mod"
+[variables.CHA_MOD]
+from = "character.abilities.cha.mod"
+
+[variables.CLASS_LEVEL]
+description = "Levels in one class — CLASS_LEVEL.rogue, CLASS_LEVEL.sorcerer."
+from = "character.classLevels"
+
+[variables.WALK_SPEED]
+from = "character.speed.walk"
+
+# ---------------------------------------------------------------------------
+# Per-character picks. Declared here so formulas can reference them, but the
+# VALUE comes from the character's binding, never from this file.
+# Kender Taunt, for one, uses an ability chosen at character creation.
+# ---------------------------------------------------------------------------
+
+[picks.CHOICE_MOD]
+description = "Ability modifier chosen when the feature was taken."
+required_on = "binding"

@@ -316,3 +316,179 @@ through a UI was always the weaker test.
   Toki's and Bjorn's exports, when the evaluator is written.
 - Whether plays and playbooks live in Notion for authoring comfort. Deferred; verbs are
   settled as repo-only, plays are not yet pressed.
+
+## Amendments — 2026-08-13
+
+Three decisions supersede parts of the design above. The superseded text is left in place
+so the original reasoning stays readable.
+
+### 1. Notion is the library's source of truth
+
+**Supersedes:** "Repo shape" (`verbs/` versioned and authored in git), and the out-of-scope
+line "Notion as a verb authoring surface. Repo only, for drift reasons."
+
+Verb definitions are authored and edited in Notion. Two new databases:
+
+| Database | Holds |
+|---|---|
+| **Verb Sets** | One row per grantor. `Set Id`, `Kind`, `Rules` (2014/2024), `Match`, `Verbs` relation |
+| **Verb Library** | One row per definition, character-agnostic. Rafe's migrated schema, minus the per-character resource fields, plus `Sets`, `Granted At`, `Choice`, `Covers`, `Match`, and formula fields |
+
+Character tables in Notion demote to **bindings**: a relation to a library row, the picks
+that character made, held members of a covered group, and current availability. Numbers
+stop being typed and start being computed at build.
+
+Definitions still hold formulas, never numbers — that rule is unchanged and is now the
+main thing Notion authoring has to respect.
+
+**Snapshot on pull.** A new `scripts/pull-verbs.py` reads Notion and writes
+`verbs/snapshot/*.json`, which is committed. Notion stays the truth and the editing
+surface; the snapshot makes builds reproducible when Notion is unreachable, gives each
+authoring run a reviewable diff, and keeps the build gates as hard failures rather than
+runtime surprises. The build reads the snapshot, never Notion directly.
+
+Revised repo shape:
+
+```
+verbs/
+  snapshot/                             pulled from Notion, committed, never hand-edited
+    sets.json
+    library.json
+  VARIABLES.md                          the namespace contract — still hand-authored
+chars/<campaign>/<char>/
+  verbs.json                            bindings (generated, committed)
+  plays.json
+  playbooks.json
+```
+
+### 2. Verbs are organised into grantor sets
+
+**Refines:** "Library tiers", which tiered by scope (universal / rules element /
+character-specific). Sets tier by *grantor* instead — what the export actually hands us,
+and the unit a second character of the same class reuses wholesale.
+
+Set ids mirror the slug namespace: `core/universal-actions`, `class/rogue`,
+`subclass/rogue/arcane-trickster`, `species/kender`, `background/<name>`,
+`feat/war-caster`, `spell-list/sorcerer`, `equipment/<item>`,
+`homebrew/<campaign>/<thing>`.
+
+Two containment rules:
+
+- **Inline where the grantor is unique.** Class, subclass, species, background and feat
+  features live inside their set. Cunning Action has exactly one source.
+- **By reference where membership is many-to-many.** Spells and equipment are their own
+  definitions; `spell-list/sorcerer` is a manifest of slugs. Fireball is granted by two
+  class lists, a scroll and a ring — one definition, many memberships.
+
+Sets carry three things individual definitions do not:
+
+1. **Level gates** — `grantedAt: { classLevel: 5 }`. Uncanny Dodge is not a level-2
+   rogue's.
+2. **Choice points** — Expertise, Metamagic, Fighting Style, Kender Aptitude. The set
+   declares the slot; the binding records the pick. This is the hole behind Rafe's
+   "picks aren't in the export — confirm on the sheet".
+3. **Rules edition** — `rules: "2024"`. Rafe and Toki are both 2024; a 2014 character
+   binds different sets under the same slugs.
+
+Binding becomes: resolve grantors from the export → union their sets → filter by level
+gates and recorded picks → evaluate formulas.
+
+### 3. Build gates gain a fourth
+
+Added to the three in "Build gates":
+
+4. An export grantor with no matching set — fails naming the grantor
+   (`no set for subclass/rogue/arcane-trickster`), rather than failing one verb at a time.
+
+This is the honesty invariant's second direction stated at the granularity where it is
+actually actionable.
+
+### 4. Rules constants live in an editable config, not in code
+
+**Supersedes:** `VARIABLES.md` as a prose document, and the open item asking what its
+initial contents should be.
+
+The variable namespace becomes data: `rules/<edition>.toml`, one file per rules edition,
+selected by the `Rules` field already carried on every set.
+
+**The split.** Notion says *which* formula a verb uses (`CANTRIP_DICE d10`). The config
+says *what the variable means* (one die, plus one at 5, 11, 17). Rules that are uniform
+across the whole game — cantrip scaling, proficiency bonus, Sneak Attack progression —
+are stated once in a file the operator can read and correct, rather than restated across
+a hundred Notion rows or buried in Python.
+
+**Build-time only.** The config never reaches the browser. The build evaluates it and
+bakes numbers, so the runtime stays arithmetic-free. Only Python parses it, which makes
+TOML free (`tomllib`, stdlib) and buys comments in a file meant to be hand-verified.
+
+A variable is declared by exactly one of `table` (level lookup), `steps` (base plus
+thresholds), `formula` (arithmetic over other variables), or `from` (read off the export).
+Per-character picks — the ability chosen for Kender Taunt, Expertise selections — are
+declared under `[picks]` so formulas may reference them, but their values come from the
+binding.
+
+Build gate 2 now validates Notion's formulas against this file: a formula referencing an
+undeclared variable fails the build by name. Editing the config changes every character's
+numbers on the next build, which is the point.
+
+`rules/2024.toml` exists as a seed and is marked `verified = false`. It needs a pass
+against the 2024 PHB before a sheet ships from it.
+
+### 5. Sets are modules and catalogs, and the difference is load-bearing
+
+**Refines:** amendment 2, which drafted `equipment/<item>` as a set per item. Wrong
+granularity — sets are the units a builder *composes onto* a character, not a filing
+scheme for definitions.
+
+| | Module set | Catalog set |
+|---|---|---|
+| Applies | Wholesale, when the character has the grantor | Member by member, matched against the export |
+| Examples | `core/*`, `species/kender`, `class/rogue`, `subclass/*`, `background/*`, `feat/war-caster` | `equipment`, every `spell-list/*` |
+| Missing set means | Hard build failure — the character silently lacks capabilities | Per-member failure, naming the item or spell |
+
+A sorcerer does not hold all sixty sorcerer spells; Rafe holds twenty-four. Equipment has
+the same shape. Both are catalogs; species, class, subclass, background and feats are
+modules.
+
+**Granularity rule: one set per thing the export names once.** The export says
+"Feat: War Caster" — that is one module. It lists forty items — that is one catalog,
+matched item by item, not forty sets.
+
+Composition becomes mechanical: collect grantors → apply modules whole → match catalog
+members → filter by level gates and recorded picks → evaluate formulas → bindings.
+
+Verb Sets carries a `Composition` field (Apply All / Match Members) so the builder reads
+the mode rather than inferring it from `Kind`.
+
+### 6. What a verb must never carry
+
+The layering — verbs are the foundation, the sheet is the vessel, plays and playbooks are
+the product — settles what does not belong in a definition:
+
+- **Anything that varies per character** belongs on the binding: alias, evaluated numbers,
+  held members of a covered group, resource pool, availability.
+- **Anything about when or why** belongs to a play. A verb states what happens and how
+  much. "Open with this when three or more enemies cluster" is tactics, and tactics are
+  what the play layer exists for. The pull to add advice fields to verbs will be constant;
+  giving in is how the library stops being reusable across characters.
+- **If a player would never say it alone at the table, it is not a verb.**
+
+### 7. Preconditions and effects, so plays can be checked
+
+Plays are the product, but a play is currently prose plus a list of slugs — nothing lets
+the build verify a sequence works, or lets the sheet ever surface a combination the player
+had not noticed. Two machine-readable fields on the definition fix that:
+
+- **`Requires`** — preconditions: `advantage`, `ally-within-5`, `target-prone`,
+  `concentration-free`, `unarmored`.
+- **`Applies`** — what it leaves behind: `prone`, `frightened`, `poisoned`,
+  `speed-reduced`, `invisible`, `advantage-next-attack`.
+
+The vocabulary stays small and closed — the rules' own condition list plus a handful of
+positional tags — so this remains mechanical and does not smuggle judgment into verbs.
+
+Sneak Attack requires advantage or an adjacent ally; Steady Aim applies
+advantage-next-attack; Cunning Strike (Trip) applies prone. Those three facts are what
+make "Line Up the Shot → Stab Where It Hurts" a verifiable play rather than two adjacent
+rows, and they are the raw material for teaching a player their own character — the
+problem this whole system exists to solve.
