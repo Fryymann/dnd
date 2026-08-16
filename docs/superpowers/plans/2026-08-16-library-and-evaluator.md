@@ -145,6 +145,7 @@ from rules_engine.rules_file import RulesFile, load_rules
 
 def test_loads_edition_and_verified_flag():
     rules = load_rules("rules/2024.toml")
+    assert isinstance(rules, RulesFile)
     assert rules.edition == "2024"
     assert rules.verified is False
 
