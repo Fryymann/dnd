@@ -7,6 +7,10 @@ from dataclasses import dataclass, replace
 
 @dataclass(frozen=True)
 class CharacterFacts:
+    # frozen=True only blocks reassigning these fields (`facts.total_level = ...`); the
+    # dicts below are still mutable in place, and `at_level()`'s `replace()` only copies
+    # `total_level` and `class_levels` — `ability_mods` in the returned copy is the same
+    # dict object as in the original, not a new one. Don't mutate it expecting isolation.
     total_level: int
     class_levels: dict[str, int]
     ability_mods: dict[str, int]
@@ -33,6 +37,12 @@ class CharacterFacts:
 
         Used only to expand a binding across levels 1-20. The character's real level is
         what the sheet renders; the rest of the table exists so level-up is a lookup.
+
+        Each class is floored to at least 1 independently, with no renormalization across
+        classes, so at low scaled levels sum(class_levels.values()) can exceed total_level
+        (a 9/5 split at total 14 scaled down to level 1 becomes {1, 1}, summing to 2, not
+        1). This is a deliberate consequence of the proportional-scaling approximation —
+        do not "fix" it by renormalizing.
         """
         if self.total_level == 0:
             return replace(self, total_level=level)
