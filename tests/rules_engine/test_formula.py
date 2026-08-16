@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from rules_engine.formula import FormulaError, evaluate_expression, referenced_names
@@ -148,12 +150,26 @@ def test_rejects_non_finite_result_from_caller_supplied_values():
         evaluate_expression("A * A", {"A": 1e300})
 
 
-def test_rejects_non_numeric_result():
-    """No operand is type-checked anywhere, so a string value slips through Python's
-    own `*` operator (`"5" * 3 == "555"`, no exception) and must be caught by
-    validating that the final result is actually a number."""
-    with pytest.raises(FormulaError, match="finite number"):
-        evaluate_expression("A * 3", {"A": "5"})
+@pytest.mark.parametrize(
+    "values,expr,offending_key",
+    [
+        ({"A": "5"}, "A + 1", "A"),
+        ({"A": [1, 2, 3]}, "A + 1", "A"),
+        ({"A": True}, "A + 1", "A"),
+        ({"A": float("inf")}, "A + 1", "A"),
+        ({"CLASS_LEVEL": {"rogue": "9"}}, "CLASS_LEVEL.rogue", "CLASS_LEVEL.rogue"),
+    ],
+    ids=["string", "list", "bool", "inf", "dict-containing-a-string"],
+)
+def test_rejects_non_numeric_values_before_evaluating(values, expr, offending_key):
+    """`values` is validated once, up front, rather than trusted and caught on the way
+    out. This is what makes `"x" * 200000000` unreachable rather than merely rejected
+    after allocating a 200 MB string: a string can never enter evaluation at all. It
+    also closes the `bool` gap (`bool` subclasses `int`) without a special case in the
+    arithmetic path itself. Each case must name the offending key, not just say
+    "invalid"."""
+    with pytest.raises(FormulaError, match=re.escape(offending_key)):
+        evaluate_expression(expr, values)
 
 
 def test_rejects_oversized_result():

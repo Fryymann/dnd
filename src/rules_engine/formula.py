@@ -122,7 +122,36 @@ def referenced_names(expression: str) -> set[str]:
     return names
 
 
+def _check_numeric(value: Any, name: str, expression: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise FormulaError(
+            f"value for {name!r} is {type(value).__name__}, not a finite number: {expression!r}",
+            expression,
+        )
+
+
+def _validate_values(values: dict[str, Any], expression: str) -> None:
+    """Reject any non-numeric value before evaluation starts.
+
+    `values` comes from CharacterFacts today, which only ever yields ints. But this
+    module's real trust boundary is a Cloud Function taking a formula and a value
+    mapping derived from a player's homebrew verb — `dict[str, Any]` promises nothing
+    about what's inside. Validating here, before parsing, makes a string operand
+    unreachable rather than merely caught on the way out: you cannot multiply a
+    string by anything if a string can never enter. It also closes the bool gap
+    (bool is a subclass of int) without a special case anywhere in the arithmetic
+    path, which is what keeps that path free of type checks.
+    """
+    for key, value in values.items():
+        if isinstance(value, dict):
+            for subkey, subvalue in value.items():
+                _check_numeric(subvalue, f"{key}.{subkey}", expression)
+        else:
+            _check_numeric(value, key, expression)
+
+
 def evaluate_expression(expression: str, values: dict[str, Any]) -> int | float:
+    _validate_values(values, expression)
     tree = _parse(expression)
 
     def visit(node: ast.AST) -> Any:
@@ -181,9 +210,10 @@ def evaluate_expression(expression: str, values: dict[str, Any]) -> int | float:
         ) from exc
 
     if not isinstance(result, (int, float)) or not math.isfinite(result):
-        # Catches what a non-finite *literal* can't: e.g. two huge caller-supplied
-        # values whose product overflows to inf, or a caller-supplied string that
-        # slips through arithmetic (`"5" * 3` == `"555"`, no exception raised).
+        # _validate_values rules out a non-numeric or non-finite *input*, and the
+        # Constant guard in _parse rules out a non-finite *literal* — but two large,
+        # individually-finite values can still multiply their way to inf. That can
+        # only be caught here, once the arithmetic is done.
         raise FormulaError(
             f"formula did not evaluate to a finite number: {expression!r}", expression
         )
