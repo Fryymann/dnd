@@ -105,6 +105,11 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
+
+# Pin the rule set explicitly. Leaving it unset does not give a small default —
+# ruff 0.16 enables 413 rules here, and which ones would drift with the version.
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "SIM", "UP"]
 ```
 
 ```python
@@ -468,11 +473,32 @@ def test_undefined_name_raises_by_name():
         "(1).__class__",
         "[x for x in range(10)]",
         "lambda: 1",
+        "min(A, key=str)",
+        "min(*A)",
+        "f'{A}'",
     ],
 )
 def test_rejects_everything_that_is_not_arithmetic(expr):
     with pytest.raises(ValueError, match="not allowed"):
         evaluate_expression(expr, {})
+
+
+@pytest.mark.parametrize("expr", ["2 ** 3", "9**9**9"])
+def test_rejects_exponentiation(expr):
+    """`9**9**9` passes every other check and then hangs the process.
+
+    CPython's bigint pow has no cutoff, so this is a denial of service in eight
+    characters against whatever evaluates an authored formula. No D&D formula needs
+    exponentiation, so the operator is simply not in the language.
+    """
+    with pytest.raises(ValueError, match="not allowed"):
+        evaluate_expression(expr, {"A": 2})
+
+
+def test_rejects_boolean_literals():
+    """bool subclasses int, so True would otherwise pass as a numeric literal."""
+    with pytest.raises(ValueError, match="not allowed"):
+        evaluate_expression("True + 1", {})
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
@@ -504,7 +530,10 @@ ALLOWED_NODES = (
     ast.Div,
     ast.FloorDiv,
     ast.Mod,
-    ast.Pow,
+    # ast.Pow is deliberately absent. `9**9**9` is eight characters that pass every
+    # other check and then hang the process on CPython's unbounded bigint pow — a
+    # trivial denial of service against a Cloud Function evaluating authored formulas.
+    # No D&D formula needs exponentiation.
     ast.USub,
     ast.UAdd,
     ast.Constant,
@@ -525,7 +554,11 @@ def _parse(expression: str) -> ast.Expression:
                 raise ValueError(f"only {sorted(FUNCTIONS)} may be called, not allowed: {expression!r}")
         if isinstance(node, ast.Attribute) and not isinstance(node.value, ast.Name):
             raise ValueError(f"only VARIABLE.key access is allowed, not allowed: {expression!r}")
-        if isinstance(node, ast.Constant) and not isinstance(node.value, (int, float)):
+        if isinstance(node, ast.Constant) and (
+            isinstance(node.value, bool) or not isinstance(node.value, (int, float))
+        ):
+            # bool is a subclass of int, so True would otherwise pass as a numeric
+            # literal and `True + 1` would quietly evaluate to 2.
             raise ValueError(f"only numeric literals are allowed, not allowed: {expression!r}")
     return tree
 
@@ -580,8 +613,6 @@ def evaluate_expression(expression: str, values: dict[str, Any]) -> float:
                         return left // right
                     case ast.Mod():
                         return left % right
-                    case ast.Pow():
-                        return left**right
         raise ValueError(f"{type(node).__name__} is not allowed in a formula")
 
     return visit(tree)

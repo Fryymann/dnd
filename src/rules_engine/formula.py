@@ -18,7 +18,10 @@ ALLOWED_NODES = (
     ast.Div,
     ast.FloorDiv,
     ast.Mod,
-    ast.Pow,
+    # ast.Pow is deliberately absent. `9**9**9` is eight characters that pass every
+    # other check and then hang the process on CPython's unbounded bigint pow — a
+    # trivial denial of service against a Cloud Function evaluating authored formulas.
+    # No D&D formula needs exponentiation.
     ast.USub,
     ast.UAdd,
     ast.Constant,
@@ -32,13 +35,8 @@ ALLOWED_NODES = (
 def _parse(expression: str) -> ast.Expression:
     tree = ast.parse(expression, mode="eval")
     for node in ast.walk(tree):
-        # ValueError (not TypeError) is deliberate here: these guard the whitelist that is
-        # the security boundary for untrusted formulas, and callers/tests key off ValueError
-        # with a "not allowed" message rather than the node's Python type.
         if not isinstance(node, ALLOWED_NODES):
-            raise ValueError(  # noqa: TRY004
-                f"{type(node).__name__} is not allowed in a formula: {expression!r}"
-            )
+            raise ValueError(f"{type(node).__name__} is not allowed in a formula: {expression!r}")
         if isinstance(node, ast.Call) and (
             not isinstance(node.func, ast.Name) or node.func.id not in FUNCTIONS
         ):
@@ -46,13 +44,13 @@ def _parse(expression: str) -> ast.Expression:
                 f"only {sorted(FUNCTIONS)} may be called, not allowed: {expression!r}"
             )
         if isinstance(node, ast.Attribute) and not isinstance(node.value, ast.Name):
-            raise ValueError(  # noqa: TRY004
-                f"only VARIABLE.key access is allowed, not allowed: {expression!r}"
-            )
-        if isinstance(node, ast.Constant) and not isinstance(node.value, (int, float)):
-            raise ValueError(  # noqa: TRY004
-                f"only numeric literals are allowed, not allowed: {expression!r}"
-            )
+            raise ValueError(f"only VARIABLE.key access is allowed, not allowed: {expression!r}")
+        if isinstance(node, ast.Constant) and (
+            isinstance(node.value, bool) or not isinstance(node.value, (int, float))
+        ):
+            # bool is a subclass of int, so True would otherwise pass as a numeric
+            # literal and `True + 1` would quietly evaluate to 2.
+            raise ValueError(f"only numeric literals are allowed, not allowed: {expression!r}")
     return tree
 
 
@@ -84,7 +82,7 @@ def evaluate_expression(expression: str, values: dict[str, Any]) -> float:
             case ast.Attribute():
                 container = visit(node.value)
                 if not isinstance(container, dict):
-                    raise ValueError(f"{node.value.id} is not subscriptable")  # noqa: TRY004
+                    raise ValueError(f"{node.value.id} is not subscriptable")
                 return container.get(node.attr, 0)
             case ast.Call():
                 return FUNCTIONS[node.func.id](*[visit(a) for a in node.args])
@@ -106,8 +104,6 @@ def evaluate_expression(expression: str, values: dict[str, Any]) -> float:
                         return left // right
                     case ast.Mod():
                         return left % right
-                    case ast.Pow():
-                        return left**right
         raise ValueError(f"{type(node).__name__} is not allowed in a formula")
 
     return visit(tree)

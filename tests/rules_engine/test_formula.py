@@ -41,8 +41,28 @@ def test_undefined_name_raises_by_name():
         "(1).__class__",
         "[x for x in range(10)]",
         "lambda: 1",
+        "min(A, key=str)",
+        "min(*A)",
+        "f'{A}'",
     ],
 )
 def test_rejects_everything_that_is_not_arithmetic(expr):
     with pytest.raises(ValueError, match="not allowed"):
         evaluate_expression(expr, {})
+
+
+@pytest.mark.parametrize("expr", ["2 ** 3", "9**9**9"])
+def test_rejects_exponentiation(expr):
+    """`9**9**9` passes every other check and then hangs the process.
+
+    CPython's bigint pow has no cutoff, so this is a denial of service in eight
+    characters against whatever evaluates an authored formula. No D&D formula needs
+    exponentiation, so the operator is simply not in the language.
+    """
+    with pytest.raises(ValueError, match="not allowed"):
+        evaluate_expression(expr, {"A": 2})
+
+
+def test_rejects_boolean_literals():
+    with pytest.raises(ValueError, match="not allowed"):
+        evaluate_expression("True + 1", {})
