@@ -632,6 +632,55 @@ git commit -m "feat: add whitelisted formula evaluator"
 
 ---
 
+#### Task 4 amendment — the shipped contract
+
+Three review rounds changed this module substantially. The pasted implementation above is
+the starting point, not the shipped code; `src/rules_engine/formula.py` is authoritative.
+The reasoning is kept here rather than rewritten above, so the superseded version stays
+readable.
+
+**Removed from the language.** `ast.Pow`, `ast.Mod`, `ast.FloorDiv`, `ast.UAdd`. `9**9**9`
+is eight characters that pass every other check and then hang the process on CPython's
+unbounded bigint pow. No rules formula uses `%` or `//`, and they carry a second
+`ZeroDivisionError` surface plus the quadratic bigint division path that measured 7.5
+seconds. `+A` does nothing. An unnecessary allowance in a security boundary costs you
+reasoning about it forever.
+
+**A missing attribute key raises.** The original `container.get(node.attr, 0)` meant
+`CLASS_LEVEL.rouge` evaluated to `0`, silently rendering a 9th-level rogue's Sneak Attack
+as zero dice. Nothing could catch it: `referenced_names` reports only the base name, so no
+gate validated the key, and `0` is plausible for most of these variables. A missing key is
+not a value of zero — it is a fact the evaluator does not have. A formula reaching a class
+the character lacks means the binding is wrong, and that should fail loudly.
+
+**Bounded input, bounded output.** `MAX_EXPRESSION_LENGTH = 500` — a 3.9 MB formula of
+nothing but `*` burned 25.7 seconds of CPU, which on a billed concurrent Cloud Function is
+an outage. The cap also closes the `RecursionError` window where `referenced_names` accepted
+input `evaluate_expression` could not run. Literals and results must be finite: `1e400`
+yields `inf`, `1e400 - 1e400` yields `nan`, and `json.dumps` emits a bare `NaN` token that
+the web app's `JSON.parse` rejects. Results are bounded at `abs(value) < 10**15` because a
+20 KB expression evaluates in under 2 ms to an integer that `str()` itself refuses.
+
+**`values` is validated before parsing.** Every value must be a finite non-`bool` `int` or
+`float`, or a dict of them. Validating the result instead would catch `"x" * 200000000`
+only after allocating 200 MB; validating the input makes it unreachable. Measured: 4.7µs to
+reject, against 112ms to perform the allocation.
+
+**`FormulaError(ValueError)`** carries the offending expression and wraps `SyntaxError`,
+`IndentationError`, `ZeroDivisionError`, `TypeError`, `OverflowError` and `RecursionError`.
+`SyntaxError` is the most likely production failure, because an agent authoring formulas
+and a player typing one both produce malformed strings routinely — without a typed error a
+caller's only option is `except Exception`, which also swallows real bugs. `MemoryError`
+deliberately propagates: it signals machine state, not bad input. `NameError` stays distinct
+for undefined variables.
+
+**Confirmed sound and left alone.** Default-deny over `ast.walk`; `Attribute.value` must be
+a bare `Name`, which makes dunder access structurally impossible rather than filtered by a
+denylist; the `FUNCTIONS` table cannot be smuggled through `values`. A 62-expression attack
+corpus rejected 53, and the 9 it accepted were all legitimate arithmetic.
+
+---
+
 ### Task 5: Variable resolution
 
 Ties the four declaration kinds together and detects circular formulas.
