@@ -26,7 +26,9 @@ class Variable:
             return "steps"
         if self.formula:
             return "formula"
-        return "from"
+        if self.source:
+            return "from"
+        raise ValueError(f"variable {self.name}: declares none of {KINDS}")
 
 
 @dataclass(frozen=True)
@@ -51,6 +53,9 @@ class Pick:
 
 @dataclass(frozen=True)
 class RulesFile:
+    # frozen=True only blocks reassigning these fields (`rules.edition = ...`); the
+    # dicts below are still mutable in place (`rules.variables["X"] = ...` works fine),
+    # so don't assume this is safe to share mutably across Cloud Function invocations.
     edition: str
     verified: bool
     tables: dict[str, Table] = field(default_factory=dict)
@@ -59,8 +64,20 @@ class RulesFile:
     picks: dict[str, Pick] = field(default_factory=dict)
 
 
+def _require(body: dict, key: str, section: str, path: Path):
+    try:
+        return body[key]
+    except KeyError:
+        raise ValueError(f"{path}: [{section}] missing required key '{key}'") from None
+
+
 def load_rules(path: str | Path) -> RulesFile:
-    raw = tomllib.loads(Path(path).read_text())
+    path = Path(path)
+    raw = tomllib.loads(path.read_text())
+
+    meta = raw.get("meta", {})
+    edition = _require(meta, "edition", "meta", path)
+    verified = _require(meta, "verified", "meta", path)
 
     variables: dict[str, Variable] = {}
     for name, body in raw.get("variables", {}).items():
@@ -78,13 +95,26 @@ def load_rules(path: str | Path) -> RulesFile:
             source=body.get("from"),
         )
 
-    tables = {
-        k: Table(index=v["index"], values=v["values"]) for k, v in raw.get("tables", {}).items()
-    }
-    steps = {
-        k: Steps(index=v["index"], base=v["base"], thresholds=v["thresholds"])
-        for k, v in raw.get("steps", {}).items()
-    }
+    tables: dict[str, Table] = {}
+    for k, v in raw.get("tables", {}).items():
+        section = f"tables.{k}"
+        index = _require(v, "index", section, path)
+        values = _require(v, "values", section, path)
+        if len(values) != 20:
+            raise ValueError(
+                f"{path}: [{section}] values must have exactly 20 entries (levels 1-20), "
+                f"found {len(values)}"
+            )
+        tables[k] = Table(index=index, values=values)
+
+    steps: dict[str, Steps] = {}
+    for k, v in raw.get("steps", {}).items():
+        section = f"steps.{k}"
+        index = _require(v, "index", section, path)
+        base = _require(v, "base", section, path)
+        thresholds = _require(v, "thresholds", section, path)
+        steps[k] = Steps(index=index, base=base, thresholds=thresholds)
+
     picks = {
         k: Pick(
             name=k,
@@ -95,8 +125,8 @@ def load_rules(path: str | Path) -> RulesFile:
     }
 
     return RulesFile(
-        edition=raw["meta"]["edition"],
-        verified=raw["meta"]["verified"],
+        edition=edition,
+        verified=verified,
         tables=tables,
         steps=steps,
         variables=variables,
