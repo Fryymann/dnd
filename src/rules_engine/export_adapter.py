@@ -88,6 +88,60 @@ def _ability_scores(data: dict) -> dict[str, int]:
     return scores
 
 
+def _spellcasting_ability_ids(data: dict) -> set[int]:
+    """Every ability id anything on the sheet says governs spellcasting.
+
+    A class's own definition names its casting ability (Fighter: none, Wizard: INT),
+    but that misses a real caster whose class doesn't carry the flag at all — a
+    Fighter with a feat-granted spell (Magic Initiate, Fey Touched, a subclass boon)
+    casts genuinely, using whatever ability that spell declares, even though no class
+    entry says so. Each spell on the sheet carries its own `spellCastingAbilityId`
+    for exactly this reason, so it has to be consulted, not just the classes.
+    """
+    ids: set[int] = set()
+
+    for klass in data["classes"]:
+        if ability_id := klass["definition"].get("spellCastingAbilityId"):
+            ids.add(ability_id)
+
+    for group in (data.get("spells") or {}).values():
+        for spell in group or []:
+            if ability_id := spell.get("spellCastingAbilityId"):
+                ids.add(ability_id)
+
+    for entry in data.get("classSpells") or []:
+        for spell in entry.get("spells") or []:
+            if ability_id := spell.get("spellCastingAbilityId"):
+                ids.add(ability_id)
+
+    return ids
+
+
+def _spellcasting_ability_mod(data: dict, ability_mods: dict[str, int]) -> int:
+    """The character's spellcasting ability modifier, or 0 if they cast nothing.
+
+    CharacterFacts.spellcasting_ability_mod is one scalar shared by every formula
+    that references SPELLCASTING_MOD; it cannot hold "INT for these spells, WIS for
+    those." A single-caster sheet (by class, by spells, or both agreeing) resolves
+    to exactly one ability and that is unambiguous. A sheet where classes and spells
+    disagree — a Wizard with a WIS-governed feat spell, a true Wizard/Cleric
+    multiclass — has no single correct answer here: `max()` would silently pick one
+    ability and render every formula using the other ability's spells wrong by a
+    plausible-looking number. rules/2024.toml documents SPELLCASTING_MOD as
+    resolving "per class"; a scalar can't do that, so refuse instead of guessing.
+    """
+    ids = _spellcasting_ability_ids(data)
+    if not ids:
+        return 0
+    if len(ids) > 1:
+        names = sorted(STAT_IDS[i] for i in ids)
+        raise ExportError(
+            f"{data.get('name', 'this character')} has more than one spellcasting "
+            f"ability ({names}); spellcasting_ability_mod cannot represent that"
+        )
+    return ability_mods[STAT_IDS[next(iter(ids))]]
+
+
 def read_export(path: str | Path) -> ParsedExport:
     # The export is {"exportedAt", "source", "characterId", "character"} — verified
     # against dndbeyond-character-v5 exports. Everything lives under "character".
@@ -96,6 +150,8 @@ def read_export(path: str | Path) -> ParsedExport:
     class_levels = {c["definition"]["name"].lower(): c["level"] for c in data["classes"]}
     scores = _ability_scores(data)
     ability_mods = {name: (score - 10) // 2 for name, score in scores.items()}
+
+    spellcasting_ability_mod = _spellcasting_ability_mod(data, ability_mods)
 
     grantors: list[Grantor] = []
     if race := data.get("race"):
@@ -121,23 +177,11 @@ def read_export(path: str | Path) -> ParsedExport:
 
     items = [i["definition"]["name"] for i in data.get("inventory") or []]
 
-    # Highest spellcasting modifier across casting classes. Single-class casters (and
-    # every multiclass combination in the six real exports, none of which pairs two
-    # simultaneous casters) resolve to their one caster, where max() is exact. A true
-    # dual-caster (e.g. Wizard/Cleric) would need each class's spells to use its own
-    # casting ability rather than one character-wide scalar; CharacterFacts only has
-    # room for one, so this is a known simplification, not fixed here.
-    casting_mods = [
-        ability_mods[STAT_IDS[c["definition"]["spellCastingAbilityId"]]]
-        for c in data["classes"]
-        if c["definition"].get("spellCastingAbilityId")
-    ]
-
     facts = CharacterFacts(
         total_level=sum(class_levels.values()),
         class_levels=class_levels,
         ability_mods=ability_mods,
-        spellcasting_ability_mod=max(casting_mods, default=0),
+        spellcasting_ability_mod=spellcasting_ability_mod,
         walk_speed=(data.get("race") or {}).get("weightSpeeds", {}).get("normal", {}).get(
             "walk", 30
         ),
