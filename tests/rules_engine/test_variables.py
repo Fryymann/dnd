@@ -1,7 +1,7 @@
 import pytest
 
 from rules_engine.facts import CharacterFacts
-from rules_engine.rules_file import load_rules
+from rules_engine.rules_file import RulesFile, Variable, load_rules
 from rules_engine.variables import UnknownVariable, resolve
 
 
@@ -93,6 +93,18 @@ def test_table_index_out_of_range_raises_by_name(tmp_path):
         resolve("OVER", rules, facts(level=21))
 
 
+def test_table_index_below_range_does_not_wrap_to_the_last_entry():
+    # Regression: a level-0 index is `int(index) - 1 == -1`. Python's negative
+    # indexing turns that into `values[-1]`, the LAST table entry, which for
+    # proficiency_by_level is 6 — a plausible-looking bonus, not an error. This is
+    # the silent-wrong-number case the bounds check exists to catch; the level-21
+    # (past the end) case above is a different failure that already raised
+    # IndexError even before the fix.
+    rules = load_rules("rules/2024.toml")
+    with pytest.raises(UnknownVariable, match="PROFICIENCY_BONUS"):
+        resolve("PROFICIENCY_BONUS", rules, facts(level=0))
+
+
 def test_table_referencing_undeclared_section_raises_by_name(tmp_path):
     path = tmp_path / "missing_table.toml"
     path.write_text(
@@ -103,3 +115,31 @@ def test_table_referencing_undeclared_section_raises_by_name(tmp_path):
     rules = load_rules(path)
     with pytest.raises(UnknownVariable, match="does_not_exist"):
         resolve("BAD", rules, facts())
+
+
+def test_three_variable_circular_chain_prints_in_true_order(tmp_path):
+    # Regression: `_seen` used to be a frozenset, which has no order, so the joined
+    # chain in the error message could come out scrambled. A two-variable cycle
+    # (A -> B -> A) can't tell an ordered chain from a scrambled one — both read the
+    # same either way. Three variables can: this only passes if `_seen` preserves
+    # insertion order (a tuple), and fails on a frozenset revert.
+    path = tmp_path / "circular3.toml"
+    path.write_text(
+        '[meta]\nedition = "x"\nverified = false\n'
+        '[variables.A]\nformula = "B + 1"\n'
+        '[variables.B]\nformula = "C + 1"\n'
+        '[variables.C]\nformula = "A + 1"\n'
+    )
+    rules = load_rules(path)
+    with pytest.raises(UnknownVariable, match=r"A -> B -> C -> A"):
+        resolve("A", rules, facts())
+
+
+def test_variable_kind_reraise_is_reachable_through_resolve():
+    # Variable.kind raises ValueError for an all-None variable (see
+    # test_rules_file.py::test_variable_kind_rejects_all_none_construction). load_rules
+    # itself can never produce one, but resolve() must not let that ValueError escape
+    # unwrapped — gate 2 only catches UnknownVariable by name.
+    rules = RulesFile(edition="x", verified=False, variables={"GHOST": Variable(name="GHOST")})
+    with pytest.raises(UnknownVariable, match="GHOST"):
+        resolve("GHOST", rules, facts())
