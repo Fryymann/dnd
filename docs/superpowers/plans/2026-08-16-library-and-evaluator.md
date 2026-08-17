@@ -1612,6 +1612,38 @@ needs a "requires equipped" notion that the Notion schema does not yet have.
 
 ---
 
+> ## ⛔ STOP — Task 10 must be amended before it is implemented
+>
+> Reviewed by Hermes at commit `8b86163`; full detail in
+> `docs/reviews/2026-08-16-library-and-evaluator-top-level-review.md`. The implementation
+> pasted below has **three unresolved correctness problems**, each of which produces a
+> silently incorrect *capability* — the same failure family as the six silent wrong numbers
+> already fixed in Tasks 2-9. Do not code it as written.
+>
+> **1. Level gates use the wrong progression.** The draft compares a member's gate against
+> `export.facts.total_level`. That is wrong for class features: a Rogue 1 / Sorcerer 13 is
+> character level 14 and must **not** receive Rogue features gated at Rogue level 2. Make the
+> progression source declarative on the model — a `level_source` field, or a `level_variable`
+> naming a rules variable — rather than branching on slug prefixes or grantor names. Matching
+> resolves the declared progression and compares the threshold against that.
+>
+> Tests required: a single-class rogue receiving a feature at the correct rogue level; a
+> Rogue 1 / Sorcerer 13 **not** receiving a Rogue 2 feature; a character-level feature using
+> total level when that is the declared source.
+>
+> **2. Grantors are keyed only by normalised display name, and map to one set.** Two sets
+> whose grantors normalise to the same string means one silently wins. Same collision family
+> as the slug findings in Task 7 and Task 8.
+>
+> **3. Inventory matching does not distinguish** owned, equipped, wielded, stowed or attuned.
+> Note the Task 9 amendment: do **not** add a global equipped filter, because a Horn of
+> Valhalla works from a pack and Chain Mail does not. This is a per-set property the Notion
+> schema does not yet carry, so it likely needs a schema decision from Ian via Noti first.
+>
+> Amend this section, then implement. The `Composition`/level-gate model in Task 7's
+> `models.py` will probably need a field added, which makes this a change to Task 7's output
+> as well.
+
 ### Task 10: Set matching
 
 **Files:**

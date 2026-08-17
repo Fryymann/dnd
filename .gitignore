@@ -9,3 +9,8 @@ __pycache__/
 
 # NTFS alternate-data-stream artifacts from files copied via WSL
 *:Zone.Identifier
+
+# Generated KoadOS agent identity anchors, regenerated per session per agent.
+# Not project content and not the same file for two agents.
+/CLAUDE.md
+/AGENTS.md
