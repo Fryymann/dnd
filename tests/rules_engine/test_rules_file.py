@@ -93,3 +93,41 @@ def test_table_wrong_length_is_rejected(tmp_path):
     )
     with pytest.raises(ValueError, match=r"tables\.SHORT.*20 entries.*found 3"):
         load_rules(path)
+
+
+def test_non_integer_table_values_is_rejected(tmp_path):
+    # `values = [2.0, ...]` used to load fine and yield a float (2.0) out of resolve()
+    # instead of the int every other table entry produces.
+    path = tmp_path / "bad.toml"
+    values = ", ".join(["2.0"] * 20)
+    path.write_text(
+        '[meta]\nedition = "x"\nverified = false\n'
+        f'[tables.FLOATY]\nindex = "CHARACTER_LEVEL"\nvalues = [{values}]\n'
+    )
+    with pytest.raises(ValueError, match=r"tables\.FLOATY.*must all be integers"):
+        load_rules(path)
+
+
+def test_duplicate_thresholds_in_steps_is_rejected(tmp_path):
+    # `[5, 5, 11]` used to double-count: a character at exactly level 5 crossed the
+    # "5" threshold twice and got base + 2 instead of base + 1.
+    path = tmp_path / "bad.toml"
+    path.write_text(
+        '[meta]\nedition = "x"\nverified = false\n'
+        '[steps.DUPED]\nindex = "CHARACTER_LEVEL"\nbase = 1\nthresholds = [5, 5, 11]\n'
+    )
+    with pytest.raises(ValueError, match=r"steps\.DUPED.*duplicate"):
+        load_rules(path)
+
+
+def test_name_declared_as_both_pick_and_variable_is_rejected(tmp_path):
+    # A name in both [variables] and [picks] used to resolve silently to the pick,
+    # ignoring the variable declaration with no diagnostic at all.
+    path = tmp_path / "bad.toml"
+    path.write_text(
+        '[meta]\nedition = "x"\nverified = false\n'
+        '[variables.CHOICE_MOD]\nfrom = "character.totalLevel"\n'
+        "[picks.CHOICE_MOD]\n"
+    )
+    with pytest.raises(ValueError, match=r"CHOICE_MOD"):
+        load_rules(path)

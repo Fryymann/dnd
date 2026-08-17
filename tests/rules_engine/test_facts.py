@@ -22,8 +22,8 @@ def test_reads_an_ability_mod():
     assert facts().read("character.abilities.dex.mod") == 5
 
 
-def test_reads_a_class_level_by_subscript():
-    assert facts().read("character.classLevels", key="rogue") == 9
+def test_reads_class_levels_as_a_container():
+    assert facts().read_container("character.classLevels") == {"rogue": 9, "sorcerer": 5}
 
 
 def test_unknown_path_raises_by_name():
@@ -31,10 +31,33 @@ def test_unknown_path_raises_by_name():
         facts().read("character.nope")
 
 
-def test_unknown_class_is_zero_not_an_error():
-    # A rogue formula must evaluate to 0 for a character with no rogue levels,
-    # not explode. Multiclass formulas are shared across characters.
-    assert facts().read("character.classLevels", key="bard") == 0
+def test_read_refuses_a_container_path():
+    # `character.classLevels` holds one value per class, not a single scalar. `read()`
+    # used to accept an optional `key` and default a missing class to 0 — which meant a
+    # rogue formula for a character with no rogue levels evaluated to a plausible 0
+    # instead of failing, and a class-levels variable declared under any name other
+    # than the one caller that always passed a key silently fell through to that same
+    # 0 for EVERY character, rogue or not. formula.py already settled the underlying
+    # question: a missing key is a fact the evaluator doesn't have, not a value of
+    # zero. `read()` now refuses container paths outright so the old behavior can't be
+    # recreated by hand; `read_container()` is the only way to get the whole dict.
+    with pytest.raises(ValueError, match="character.classLevels"):
+        facts().read("character.classLevels")
+
+
+def test_read_container_refuses_a_scalar_path():
+    with pytest.raises(ValueError, match="character.totalLevel"):
+        facts().read_container("character.totalLevel")
+
+
+def test_read_container_unknown_path_raises_by_name():
+    with pytest.raises(ValueError, match="character.nope"):
+        facts().read_container("character.nope")
+
+
+def test_is_container_path():
+    assert facts().is_container_path("character.classLevels") is True
+    assert facts().is_container_path("character.totalLevel") is False
 
 
 def test_unknown_ability_in_known_path_raises_by_name():

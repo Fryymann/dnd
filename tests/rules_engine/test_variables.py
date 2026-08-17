@@ -1,6 +1,7 @@
 import pytest
 
 from rules_engine.facts import CharacterFacts
+from rules_engine.formula import FormulaError
 from rules_engine.rules_file import RulesFile, Variable, load_rules
 from rules_engine.variables import UnknownVariable, resolve
 
@@ -133,6 +134,100 @@ def test_three_variable_circular_chain_prints_in_true_order(tmp_path):
     rules = load_rules(path)
     with pytest.raises(UnknownVariable, match=r"A -> B -> C -> A"):
         resolve("A", rules, facts())
+
+
+def test_class_levels_source_under_any_name_is_a_container_not_zero(tmp_path):
+    # The actual bug: SUBSCRIPTABLE used to key on the variable's NAME ("CLASS_LEVEL"),
+    # but what makes a `from` source a container is its export PATH
+    # ("character.classLevels"), not what the rules file happens to call it. A
+    # class-levels variable declared under any other name fell through to
+    # `facts.read`, which silently returned 0 for every character — a 9th-level
+    # rogue's Sneak Attack rendering as zero dice. Now the source path decides, so
+    # `ROGUE_LEVEL` resolves to the whole {"rogue": 9, ...} container, and dividing
+    # a dict by 2 raises FormulaError instead of quietly evaluating to 0.
+    path = tmp_path / "renamed.toml"
+    path.write_text(
+        '[meta]\nedition = "x"\nverified = false\n'
+        '[variables.ROGUE_LEVEL]\nfrom = "character.classLevels"\n'
+        '[variables.SNEAK]\nformula = "ceil(ROGUE_LEVEL / 2)"\n'
+    )
+    rules = load_rules(path)
+    with pytest.raises(FormulaError):
+        resolve("SNEAK", rules, facts())
+
+
+def test_steps_index_below_domain_raises(tmp_path):
+    # Branch-asymmetry regression: the table branch was hardened to reject an
+    # out-of-domain index; steps was not, so CANTRIP_DICE quietly returned 1 at
+    # level 0 and level -3, and 4 at level 25 and level 100, while PROFICIENCY_BONUS
+    # (a table) already raised on all four. Both branches now share one validator.
+    rules = load_rules("rules/2024.toml")
+    with pytest.raises(UnknownVariable, match="CANTRIP_DICE"):
+        resolve("CANTRIP_DICE", rules, facts(level=0))
+
+
+def test_steps_index_negative_raises():
+    rules = load_rules("rules/2024.toml")
+    with pytest.raises(UnknownVariable, match="CANTRIP_DICE"):
+        resolve("CANTRIP_DICE", rules, facts(level=-3))
+
+
+def test_steps_index_above_domain_raises():
+    rules = load_rules("rules/2024.toml")
+    with pytest.raises(UnknownVariable, match="CANTRIP_DICE"):
+        resolve("CANTRIP_DICE", rules, facts(level=25))
+
+
+def test_steps_index_far_above_domain_raises():
+    rules = load_rules("rules/2024.toml")
+    with pytest.raises(UnknownVariable, match="CANTRIP_DICE"):
+        resolve("CANTRIP_DICE", rules, facts(level=100))
+
+
+def test_table_index_bool_is_rejected_not_treated_as_one(tmp_path):
+    # `int(True) == 1` would silently treat a boolean pick as level 1. A pick's
+    # value is a `dict[str, int]` by type hint, but nothing upstream enforces that
+    # yet (finding 6, left to Task 6), so this must be checked here too.
+    path = tmp_path / "bool_index.toml"
+    path.write_text(
+        '[meta]\nedition = "x"\nverified = false\n'
+        '[tables.t]\nindex = "IDX"\n'
+        "values = [2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6]\n"
+        '[variables.OVER]\ntable = "t"\n'
+        '[picks.IDX]\n'
+    )
+    rules = load_rules(path)
+    with pytest.raises(UnknownVariable, match="OVER"):
+        resolve("OVER", rules, facts(), picks={"IDX": True})
+
+
+def test_table_index_float_is_rejected_not_truncated(tmp_path):
+    # `int(5.9) == 5` would silently truncate a fractional index to a plausible
+    # level instead of failing on the non-integer input.
+    path = tmp_path / "float_index.toml"
+    path.write_text(
+        '[meta]\nedition = "x"\nverified = false\n'
+        '[tables.t]\nindex = "IDX"\n'
+        "values = [2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6]\n"
+        '[variables.OVER]\ntable = "t"\n'
+        '[picks.IDX]\n'
+    )
+    rules = load_rules(path)
+    with pytest.raises(UnknownVariable, match="OVER"):
+        resolve("OVER", rules, facts(), picks={"IDX": 5.9})
+
+
+def test_typo_export_path_raises_unknown_variable_not_key_error(tmp_path):
+    # Every other failure in this module is UnknownVariable so gate 2 can catch by
+    # type. A typo'd `from` path used to escape as a bare KeyError instead.
+    path = tmp_path / "typo.toml"
+    path.write_text(
+        '[meta]\nedition = "x"\nverified = false\n'
+        '[variables.FLY_SPEED]\nfrom = "character.speed.fly"\n'
+    )
+    rules = load_rules(path)
+    with pytest.raises(UnknownVariable, match="FLY_SPEED"):
+        resolve("FLY_SPEED", rules, facts())
 
 
 def test_variable_kind_reraise_is_reachable_through_resolve():

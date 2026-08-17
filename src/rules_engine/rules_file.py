@@ -105,6 +105,8 @@ def load_rules(path: str | Path) -> RulesFile:
                 f"{path}: [{section}] values must have exactly 20 entries (levels 1-20), "
                 f"found {len(values)}"
             )
+        if any(isinstance(x, bool) or not isinstance(x, int) for x in values):
+            raise ValueError(f"{path}: [{section}] values must all be integers, found {values}")
         tables[k] = Table(index=index, values=values)
 
     steps: dict[str, Steps] = {}
@@ -113,6 +115,10 @@ def load_rules(path: str | Path) -> RulesFile:
         index = _require(v, "index", section, path)
         base = _require(v, "base", section, path)
         thresholds = _require(v, "thresholds", section, path)
+        if len(thresholds) != len(set(thresholds)):
+            raise ValueError(
+                f"{path}: [{section}] thresholds must not contain duplicates, found {thresholds}"
+            )
         steps[k] = Steps(index=index, base=base, thresholds=thresholds)
 
     picks = {
@@ -123,6 +129,12 @@ def load_rules(path: str | Path) -> RulesFile:
         )
         for k, v in raw.get("picks", {}).items()
     }
+
+    overlap = variables.keys() & picks.keys()
+    if overlap:
+        raise ValueError(
+            f"{path}: declared as both a pick and a variable: {sorted(overlap)}"
+        )
 
     return RulesFile(
         edition=edition,

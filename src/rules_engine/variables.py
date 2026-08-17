@@ -8,15 +8,36 @@ from rules_engine.facts import CharacterFacts
 from rules_engine.formula import evaluate_expression, referenced_names
 from rules_engine.rules_file import RulesFile
 
-# Variables whose `from` source is a dict rather than a scalar. A formula that
-# references CLASS_LEVEL.rogue needs the whole dict of class levels so attribute
-# access can resolve the `.rogue` key; CharacterFacts.read() would need a key up
-# front to return a single int, which resolve() doesn't have at this point.
-SUBSCRIPTABLE = {"CLASS_LEVEL"}
+# A `table` or `steps` variable indexes by a resolved character level. Levels 1-20
+# are the only domain rules_file.py guarantees: every table's `values` list is
+# required to have exactly 20 entries. Shared by both branches so the guarantee
+# cannot drift apart between them again.
+LEVEL_DOMAIN = range(1, 21)
 
 
 class UnknownVariable(ValueError):
     """Gate 2. Always names the variable."""
+
+
+def _validate_level_index(value: Any, *, name: str, section_kind: str, section_name: str) -> int:
+    """Reject anything that isn't already an int level in 1-20.
+
+    Mirrors formula.py's stance: a trust boundary validates on the way in rather
+    than coercing. `int(value)` would silently accept `True` (as 1), `"3"`, `" 7 "`
+    and `5.9` (truncated to 5) — all plausible-looking wrong numbers instead of
+    errors.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise UnknownVariable(
+            f"variable {name!r}: {section_kind} {section_name!r} index must be an int level, "
+            f"got {type(value).__name__} ({value!r})"
+        )
+    if value not in LEVEL_DOMAIN:
+        raise UnknownVariable(
+            f"variable {name!r}: {section_kind} {section_name!r} index {value} is out of range "
+            f"(levels 1-20)"
+        )
+    return value
 
 
 def resolve(
@@ -25,7 +46,7 @@ def resolve(
     facts: CharacterFacts,
     picks: dict[str, int] | None = None,
     _seen: tuple[str, ...] = (),
-) -> Any:
+) -> int | float | dict[str, int]:
     picks = picks or {}
 
     if name in _seen:
@@ -51,9 +72,14 @@ def resolve(
 
     match kind:
         case "from":
-            if name in SUBSCRIPTABLE:
-                return facts.class_levels
-            return facts.read(variable.source)
+            try:
+                if facts.is_container_path(variable.source):
+                    return facts.read_container(variable.source)
+                return facts.read(variable.source)
+            except KeyError as exc:
+                raise UnknownVariable(
+                    f"variable {name!r} references unknown export path {variable.source!r}"
+                ) from exc
         case "table":
             if variable.table not in rules.tables:
                 raise UnknownVariable(
@@ -61,13 +87,10 @@ def resolve(
                 )
             table = rules.tables[variable.table]
             index = resolve(table.index, rules, facts, picks, seen)
-            position = int(index) - 1
-            if not 0 <= position < len(table.values):
-                raise UnknownVariable(
-                    f"variable {name!r}: index {index} is out of range for table "
-                    f"{variable.table!r} (levels 1-{len(table.values)})"
-                )
-            return table.values[position]
+            index = _validate_level_index(
+                index, name=name, section_kind="table", section_name=variable.table
+            )
+            return table.values[index - 1]
         case "steps":
             if variable.steps not in rules.steps:
                 raise UnknownVariable(
@@ -75,6 +98,9 @@ def resolve(
                 )
             steps = rules.steps[variable.steps]
             index = resolve(steps.index, rules, facts, picks, seen)
+            index = _validate_level_index(
+                index, name=name, section_kind="steps", section_name=variable.steps
+            )
             return steps.base + sum(1 for t in steps.thresholds if index >= t)
         case "formula":
             values = {
