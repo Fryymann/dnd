@@ -89,55 +89,47 @@ def _ability_scores(data: dict) -> dict[str, int]:
 
 
 def _spellcasting_ability_ids(data: dict) -> set[int]:
-    """Every ability id anything on the sheet says governs spellcasting.
+    """Every ability id a spellcasting CLASS declares.
 
-    A class's own definition names its casting ability (Fighter: none, Wizard: INT),
-    but that misses a real caster whose class doesn't carry the flag at all — a
-    Fighter with a feat-granted spell (Magic Initiate, Fey Touched, a subclass boon)
-    casts genuinely, using whatever ability that spell declares, even though no class
-    entry says so. Each spell on the sheet carries its own `spellCastingAbilityId`
-    for exactly this reason, so it has to be consulted, not just the classes.
+    SPELLCASTING_MOD means the ability of the character's spellcasting class — not
+    any ability a feat- or item-granted spell happens to use. Fey Touched, Magic
+    Initiate and similar let a player choose the ability when the feature is taken;
+    that choice varies per character and belongs on the binding as CHOICE_MOD (see
+    `[picks.CHOICE_MOD]` in rules/2024.toml — the same shape as Kender Taunt), not
+    folded into the class's own spellcasting modifier. Consulting spell entries here
+    would let one off-class spell silently redefine what SPELLCASTING_MOD means for
+    the character's actual casting class.
     """
     ids: set[int] = set()
-
     for klass in data["classes"]:
         if ability_id := klass["definition"].get("spellCastingAbilityId"):
             ids.add(ability_id)
-
-    for group in (data.get("spells") or {}).values():
-        for spell in group or []:
-            if ability_id := spell.get("spellCastingAbilityId"):
-                ids.add(ability_id)
-
-    for entry in data.get("classSpells") or []:
-        for spell in entry.get("spells") or []:
-            if ability_id := spell.get("spellCastingAbilityId"):
-                ids.add(ability_id)
-
     return ids
 
 
-def _spellcasting_ability_mod(data: dict, ability_mods: dict[str, int]) -> int:
-    """The character's spellcasting ability modifier, or 0 if they cast nothing.
+def _spellcasting_ability_mod(data: dict, ability_mods: dict[str, int]) -> int | None:
+    """The ability modifier of the character's spellcasting class, or None.
 
-    CharacterFacts.spellcasting_ability_mod is one scalar shared by every formula
-    that references SPELLCASTING_MOD; it cannot hold "INT for these spells, WIS for
-    those." A single-caster sheet (by class, by spells, or both agreeing) resolves
-    to exactly one ability and that is unambiguous. A sheet where classes and spells
-    disagree — a Wizard with a WIS-governed feat spell, a true Wizard/Cleric
-    multiclass — has no single correct answer here: `max()` would silently pick one
-    ability and render every formula using the other ability's spells wrong by a
-    plausible-looking number. rules/2024.toml documents SPELLCASTING_MOD as
-    resolving "per class"; a scalar can't do that, so refuse instead of guessing.
+    None means "no spellcasting class" — a fact this character genuinely doesn't
+    have, not a modifier of zero. CharacterFacts.read() raises by name if a formula
+    asks for it on a character with no casting class, rather than silently handing
+    back 0, which is exactly the defect closed for missing ability scores and
+    missing class levels.
+
+    Two casting classes with different abilities (a true Wizard/Cleric multiclass)
+    is genuinely unrepresentable by one scalar. rules/2024.toml documents
+    SPELLCASTING_MOD as resolving "per class"; refusing here is honest about that
+    limit rather than silently picking one class's answer for both.
     """
     ids = _spellcasting_ability_ids(data)
     if not ids:
-        return 0
+        return None
     if len(ids) > 1:
         names = sorted(STAT_IDS[i] for i in ids)
         raise ExportError(
-            f"{data.get('name', 'this character')} has more than one spellcasting "
-            f"ability ({names}); spellcasting_ability_mod cannot represent that"
+            f"{data.get('name', 'this character')} has classes with different "
+            f"spellcasting abilities ({names}); spellcasting_ability_mod cannot "
+            "represent that"
         )
     return ability_mods[STAT_IDS[next(iter(ids))]]
 

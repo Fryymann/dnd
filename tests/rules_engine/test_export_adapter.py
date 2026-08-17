@@ -126,10 +126,12 @@ def test_override_of_zero_wins_over_the_summed_score(tmp_path):
     assert parsed.facts.ability_mods["str"] == -5  # (0 - 10) // 2
 
 
-def test_spellcasting_ability_is_read_from_spells_when_no_class_declares_one(tmp_path):
-    # A Fighter with a feat-granted spell: the class carries no spellCastingAbilityId,
-    # but the spell itself declares wisdom. This is Jeff's shape (Cure Wounds via a
-    # feat) — before the fix, max([], default=0) silently answered "no casting" here.
+def test_no_casting_class_yields_none_and_reading_it_raises_by_name(tmp_path):
+    # A Fighter with a feat-granted spell: the class carries no spellCastingAbilityId.
+    # This is Jeff's shape (Cure Wounds via a feat) — his Wisdom comes from the feat,
+    # not from a spellcasting class, so SPELLCASTING_MOD must be a fact he doesn't
+    # have (None), not 0 (silently non-caster) and not 3 (silently borrowing the
+    # feat's ability, which belongs on the binding as CHOICE_MOD instead).
     character = _base_character(
         classes=[{"level": 13, "definition": {"name": "Fighter"}}],
         spells={"feat": [{"definition": {"name": "Cure Wounds"}, "spellCastingAbilityId": 5}]},
@@ -137,17 +139,37 @@ def test_spellcasting_ability_is_read_from_spells_when_no_class_declares_one(tmp
     path = _write_export(tmp_path, character)
 
     parsed = read_export(path)
-    assert parsed.facts.spellcasting_ability_mod == parsed.facts.ability_mods["wis"]
+    assert parsed.facts.spellcasting_ability_mod is None
+    with pytest.raises(KeyError, match="spellcastingAbilityMod"):
+        parsed.facts.read("character.spellcastingAbilityMod")
 
 
-def test_spellcasting_ability_disagreement_between_class_and_spell_raises(tmp_path):
+def test_feat_spell_disagreeing_with_class_does_not_raise_and_uses_class_ability(tmp_path):
     # A Wizard (INT) with a feat spell declaring wisdom: this is Bjorn's shape
-    # (Silvery Barbs, Misty Step via Fey Touched). Two distinct abilities means no
-    # single spellcasting_ability_mod is correct, so this must refuse rather than
-    # pick one and render the other set of spells wrong.
+    # (Silvery Barbs, Misty Step via Fey Touched, whose ability is a per-character
+    # choice that belongs on the binding as CHOICE_MOD). SPELLCASTING_MOD means the
+    # casting class's ability only — the off-class feat spell must not influence it,
+    # and must not cause a refusal either, since the class ability is unambiguous.
     character = _base_character(
         classes=[{"level": 10, "definition": {"name": "Wizard", "spellCastingAbilityId": 4}}],
         spells={"feat": [{"definition": {"name": "Silvery Barbs"}, "spellCastingAbilityId": 5}]},
+    )
+    path = _write_export(tmp_path, character)
+
+    parsed = read_export(path)
+    assert parsed.facts.spellcasting_ability_mod == parsed.facts.ability_mods["int"]
+
+
+def test_two_casting_classes_with_different_abilities_raises(tmp_path):
+    # A true dual-caster, e.g. Wizard (INT) / Cleric (WIS): genuinely unrepresentable
+    # by one scalar. rules/2024.toml documents SPELLCASTING_MOD as resolving "per
+    # class"; a single value can't, so this must refuse rather than pick one class's
+    # answer and silently misprice the other class's spells.
+    character = _base_character(
+        classes=[
+            {"level": 10, "definition": {"name": "Wizard", "spellCastingAbilityId": 4}},
+            {"level": 5, "definition": {"name": "Cleric", "spellCastingAbilityId": 5}},
+        ],
     )
     path = _write_export(tmp_path, character)
 

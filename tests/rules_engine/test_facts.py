@@ -65,6 +65,18 @@ def test_unknown_ability_in_known_path_raises_by_name():
         facts().read("character.abilities.xyz.mod")
 
 
+def test_no_spellcasting_class_raises_by_name_rather_than_reading_zero():
+    no_caster = CharacterFacts(
+        total_level=13,
+        class_levels={"fighter": 13},
+        ability_mods={"str": 0, "dex": 5, "con": 2, "int": 3, "wis": 1, "cha": 4},
+        spellcasting_ability_mod=None,
+        walk_speed=30,
+    )
+    with pytest.raises(KeyError, match="character.spellcastingAbilityMod"):
+        no_caster.read("character.spellcastingAbilityMod")
+
+
 def test_at_level_scales_class_levels_to_a_mid_level():
     scaled = facts().at_level(7)
     assert scaled.total_level == 7

@@ -15,7 +15,10 @@ class CharacterFacts:
     total_level: int
     class_levels: dict[str, int]
     ability_mods: dict[str, int]
-    spellcasting_ability_mod: int
+    # None for a character with no spellcasting class — that is a fact this character
+    # doesn't have, not a modifier of zero. read() raises by name rather than handing
+    # a formula a plausible-looking number for a character who can't cast.
+    spellcasting_ability_mod: int | None
     walk_speed: int
 
     # Export paths that hold one value per key (a class, an ability, ...) rather than
@@ -36,6 +39,11 @@ class CharacterFacts:
         if path == "character.speed.walk":
             return self.walk_speed
         if path == "character.spellcastingAbilityMod":
+            if self.spellcasting_ability_mod is None:
+                raise KeyError(
+                    f"{path}: this character has no spellcasting class, "
+                    "so there is no class spellcasting ability modifier to read"
+                )
             return self.spellcasting_ability_mod
         if path.startswith("character.abilities.") and path.endswith(".mod"):
             ability = path.split(".")[2]
