@@ -856,6 +856,51 @@ git commit -m "feat: resolve variables by table, steps, formula and from"
 
 ---
 
+#### Task 5 amendment — the container seam, and a doctrine reversal
+
+Review found a third silent wrong number, the same `.get(key, 0)` shape as the two before
+it. The fix spans Tasks 2, 3 and 5, so it is recorded here rather than in three places.
+
+**The bug.** `SUBSCRIPTABLE = {"CLASS_LEVEL"}` decided container-ness by the variable's
+NAME. What actually determines it is the export PATH. So a rules file declaring
+`[variables.ROGUE_LEVEL]` with `from = "character.classLevels"` fell through to
+`facts.read`, whose only reachable behaviour was `class_levels.get(key or "", 0)` — no
+production caller ever passed `key`. A 9th-level rogue's Sneak Attack rendered as zero
+dice, for every character, at every level. Gate 2 could not catch it: it checks that names
+are declared, never that they resolve sensibly, and `0` is plausible for most of these
+variables. It was reachable through the documented editing surface, since there is no
+other syntax for "levels in one named class".
+
+**The fix.** `CharacterFacts` owns `CONTAINER_PATHS` and exposes `is_container_path` and
+`read_container`; `read` raises when handed a container path, and its `key` parameter is
+deleted. `variables.py` routes on the path rather than a hardcoded name set. The knowledge
+lives with the data, so the mismatch is now impossible rather than merely caught.
+
+**Doctrine reversal.** Task 3 shipped a test asserting
+`read("character.classLevels", key="bard") == 0`, with a comment arguing a rogue formula
+must evaluate to 0 rather than explode for a character with no rogue levels. The Task 4
+amendment had already overturned that reasoning — a verb only binds to a character who
+holds it, so a formula reaching a class they lack means the binding is wrong. Two modules
+disagreed in writing about the same question, which is how this bug survived two reviews.
+Resolved in favour of `formula.py`: that test is deleted and replaced by
+`test_read_refuses_a_container_path`.
+
+**Branch asymmetry closed.** The `table` branch was hardened during review and the `steps`
+branch was not, so `CANTRIP_DICE` returned `1` at level −3 and `4` at level 100 while
+`PROFICIENCY_BONUS` raised on both. Both branches now share one `_validate_level_index`
+helper, which also rejects the index types `int()` silently coerced — `True` as level 1,
+`"3"` as level 3, `5.9` as level 5 — matching `formula.py`'s stance that a trust boundary
+validates on the way in.
+
+**Load-time checks added to `rules_file.py`:** duplicate steps thresholds (`[5, 5, 11]`
+double-counted to 3 at level 5), a name declared as both a pick and a variable (silently
+resolved to the pick), and non-integer table values.
+
+**Deferred deliberately:** picks are returned unvalidated (Task 6 owns it), and a formula
+using `/` can return `7.0` where an integer is meant (Task 12's display layer owns it).
+
+---
+
 ### Task 6: Expand across levels 1-20
 
 **Files:**
