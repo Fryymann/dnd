@@ -44,7 +44,7 @@ def resolve(
     name: str,
     rules: RulesFile,
     facts: CharacterFacts,
-    picks: dict[str, int] | None = None,
+    picks: dict[str, int | float] | None = None,
     _seen: tuple[str, ...] = (),
 ) -> int | float | dict[str, int]:
     picks = picks or {}

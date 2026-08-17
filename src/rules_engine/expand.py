@@ -13,7 +13,7 @@ from rules_engine.variables import resolve
 LEVELS = range(1, 21)
 
 
-def _validate_picks(picks: dict[str, int]) -> None:
+def _validate_picks(picks: dict[str, int | float]) -> None:
     """Reject any pick value that isn't a finite, non-bool int or float.
 
     Mirrors formula.py's `_validate_values`: a trust boundary validates on the way
@@ -37,7 +37,7 @@ def expand_expression(
     expression: str,
     rules: RulesFile,
     facts: CharacterFacts,
-    picks: dict[str, int] | None = None,
+    picks: dict[str, int | float] | None = None,
 ) -> dict[int, int | float]:
     """Map every level 1-20 to the expression's value at that level."""
     picks = picks or {}
