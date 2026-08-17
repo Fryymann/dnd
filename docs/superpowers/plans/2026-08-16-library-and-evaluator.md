@@ -1576,6 +1576,42 @@ git commit -m "feat: adapt D&D Beyond exports into CharacterFacts and grantors"
 
 ---
 
+#### Task 9 amendment — what SPELLCASTING_MOD means
+
+The pasted adapter took `max(casting_mods, default=0)` across casting classes. That produced
+a wrong number on real data: **Jeff** is a Fighter with no casting class, so the default
+fired and gave `0`, while his feat spells (Cure Wounds, Lesser Restoration) declare Wisdom
+at +3. Through `SPELL_SAVE_DC = 8 + SPELLCASTING_MOD + PROFICIENCY_BONUS` at PB +5 the engine
+rendered **DC 13 against a sheet that says 16**. Zero was undetectable as a sentinel, because
+Bjorn's charisma modifier is a genuine 0 in the same dataset.
+
+Reading the ability from the spells instead then made **Bjorn** raise: his Wizard spells cast
+with Intelligence and his Fey Touched spells with Wisdom. That is not bad data — Fey Touched
+lets you choose the ability when you take the feat, so both are true at once.
+
+**The resolution, which the rules file already contained.** `[picks.CHOICE_MOD]` is declared
+as "ability modifier chosen when the feature was taken" with `required_on = "binding"`, and
+exists for Kender Taunt. Fey Touched is structurally identical. So:
+
+- `SPELLCASTING_MOD` is the spellcasting **class's** ability and nothing else.
+- Feat- and item-granted spells use `CHOICE_MOD`, supplied per binding.
+- Two casting **classes** with different abilities still raises — genuinely unrepresentable
+  by a scalar, and `rules/2024.toml` documents the intent as "multiclass casters resolve per
+  class".
+- `spellcasting_ability_mod` is `int | None`, and reading it for a character with no casting
+  class raises by name. Returning `0` would have restored the original defect.
+
+Final state: Toki 3, Billie 3, Bjorn 5, Jasper 5, Jeff `None`, The Grey Man 2.
+
+**Carried into Task 10 rather than rediscovered there:** `walk_speed` reads the species base
+and ignores speed modifiers, so Mobile, Monk Unarmored Movement and Barbarian Fast Movement
+would render base speed (none of the six characters is affected today).
+`items` includes unequipped and container-stowed gear — Jeff has 22 inventory entries and 3
+equipped, including a stowed Chain Mail — so an equipment set granting armour consequences
+needs a "requires equipped" notion that the Notion schema does not yet have.
+
+---
+
 ### Task 10: Set matching
 
 **Files:**
