@@ -6,3 +6,6 @@ __pycache__/
 .venv/
 .pytest_cache/
 .ruff_cache/
+
+# NTFS alternate-data-stream artifacts from files copied via WSL
+*:Zone.Identifier
