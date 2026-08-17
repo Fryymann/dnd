@@ -1226,6 +1226,25 @@ git commit -m "feat: add definition, set and binding models with a small snapsho
 
 ---
 
+#### Task 7 amendment — a double underscore cannot appear in a slug
+
+`slug_to_filename` maps `/` to `__`, which is not injective: `homebrew/dm__gift` and
+`homebrew/dm/gift` both encode to `homebrew__dm__gift`. On the read path Task 8 catches the
+mismatch, because the filename disagrees with the slug recorded inside the file. On the
+write path nothing caught it — the second verb would silently overwrite the first and
+vanish from the snapshot. That is data loss rather than a wrong number, and the first
+defect of that kind in this build.
+
+The encoding stays and the input is forbidden instead. Readable filenames are the reason
+the snapshot exists — they turn a Notion authoring run into a reviewable `git diff` — and a
+double underscore never appears in an authored kebab-case slug. `slug_to_filename` now
+raises, which closes it at the source for Task 17 (which writes the snapshot) and Task 19
+(which derives Firestore document ids from the same slugs) without either repeating the
+check. `slug_from_filename` needs no guard: once encoding refuses `__`, every `__` in a
+legitimate filename provably came from a `/`, so decoding is total.
+
+---
+
 ### Task 8: Read the snapshot
 
 **Files:**
