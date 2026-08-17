@@ -12,10 +12,32 @@ class Composition(StrEnum):
 
 
 def slug_to_filename(slug: str) -> str:
+    """Encode a slug as a snapshot filename, using `__` in place of `/`.
+
+    A double underscore is reserved as the path separator in snapshot filenames,
+    so it cannot appear inside a slug: "homebrew/dm__gift" and "homebrew/dm/gift"
+    would both encode to "homebrew__dm__gift", and the second write would silently
+    overwrite the first with no error anywhere. Slugs are authored kebab-case
+    (single hyphens, single underscores at most), so a legitimate slug never needs
+    "__" — rejecting it here closes the collision at the one place it can be
+    prevented instead of discovered later as a vanished verb.
+    """
+    if "__" in slug:
+        raise ValueError(
+            f"slug {slug!r} contains '__', which is reserved as the path separator "
+            "in snapshot filenames and cannot appear inside a slug"
+        )
     return slug.replace("/", "__")
 
 
 def slug_from_filename(name: str) -> str:
+    """Decode a snapshot filename back into a slug.
+
+    No collision guard is needed on this side: every "__" in a filename was
+    produced by a "/" in the original slug, because slug_to_filename now refuses
+    to encode a slug that itself contains "__". Given only filenames produced by
+    slug_to_filename, this direction is already total and unambiguous.
+    """
     return name.replace("__", "/")
 
 
@@ -66,7 +88,7 @@ class Binding:
     character_id: str
     slug: str
     alias: str = ""
-    evaluated: dict[str, dict[int, float]] = field(default_factory=dict)
+    evaluated: dict[str, dict[int, int | float]] = field(default_factory=dict)
     formulas: dict[str, str] = field(default_factory=dict)
     held_members: list[str] = field(default_factory=list)
     resource_pool: int | None = None
