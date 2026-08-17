@@ -1,0 +1,10 @@
+{
+  "slug": "spell-list/sorcerer",
+  "name": "Sorcerer Spells",
+  "composition": "match_members",
+  "grantor": "Sorcerer",
+  "members": ["spell/fire-bolt"],
+  "level_gates": {},
+  "choice_points": [],
+  "rules_edition": "2024"
+}

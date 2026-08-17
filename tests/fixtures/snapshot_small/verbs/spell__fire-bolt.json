@@ -1,0 +1,16 @@
+{
+  "slug": "spell/fire-bolt",
+  "rules_name": "Fire Bolt",
+  "source": "Spell",
+  "source_feature": "Sorcerer",
+  "category": "damage",
+  "modes": ["combat"],
+  "kind": "action",
+  "action_cost": "action",
+  "cadence": "at will",
+  "effect": "Ranged spell attack, 120 feet. Fire damage.",
+  "formulas": {"damage_dice": "CANTRIP_DICE", "attack": "SPELL_ATTACK"},
+  "requires": ["target-visible"],
+  "applies": [],
+  "rules_edition": "2024"
+}

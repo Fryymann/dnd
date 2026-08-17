@@ -1,0 +1,16 @@
+{
+  "slug": "class-feature/cunning-action-dash",
+  "rules_name": "Cunning Action: Dash",
+  "source": "Class Feature",
+  "source_feature": "Rogue",
+  "category": "movement",
+  "modes": ["combat", "exploration"],
+  "kind": "action",
+  "action_cost": "bonus",
+  "cadence": "at will",
+  "effect": "Double your movement for the turn.",
+  "formulas": {"distance": "WALK_SPEED * 2"},
+  "requires": [],
+  "applies": [],
+  "rules_edition": "2024"
+}

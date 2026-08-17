@@ -1,0 +1,16 @@
+{
+  "slug": "class-feature/sneak-attack",
+  "rules_name": "Sneak Attack",
+  "source": "Class Feature",
+  "source_feature": "Rogue",
+  "category": "damage",
+  "modes": ["combat"],
+  "kind": "modifier",
+  "action_cost": "none",
+  "cadence": "once per turn",
+  "effect": "Extra damage when you have advantage or an ally is within 5 feet.",
+  "formulas": {"damage_dice": "SNEAK_ATTACK_DICE"},
+  "requires": ["advantage", "ally-within-5"],
+  "applies": [],
+  "rules_edition": "2024"
+}

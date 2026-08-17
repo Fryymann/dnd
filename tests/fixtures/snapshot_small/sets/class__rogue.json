@@ -1,0 +1,10 @@
+{
+  "slug": "class/rogue",
+  "name": "Rogue",
+  "composition": "apply_all",
+  "grantor": "Rogue",
+  "members": ["class-feature/sneak-attack", "class-feature/cunning-action-dash"],
+  "level_gates": {"class-feature/cunning-action-dash": 2},
+  "choice_points": [],
+  "rules_edition": "2024"
+}
